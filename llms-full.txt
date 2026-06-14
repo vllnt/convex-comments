@@ -122,9 +122,7 @@ Client options:
 This component ships **backend-only** — no `./react` entry. A comment thread is an
 ordinary reactive `useQuery` / `usePaginatedQuery` over the host's own re-exported
 `list` / `count` function refs (those return live in Convex), so a dedicated hook
-would add a wrapper with no value over the host's existing `api`. If a future
-consumer needs a shared management surface the analysis will be re-run (per the
-Component Standard's front-end tooling decision).
+would add a wrapper with no value over the host's existing `api`.
 
 ## Security Model
 
