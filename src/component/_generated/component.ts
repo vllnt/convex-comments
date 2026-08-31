@@ -24,6 +24,13 @@ import type { FunctionReference } from "convex/server";
 export type ComponentApi<Name extends string | undefined = string | undefined> =
   {
     mutations: {
+      edit: FunctionReference<
+        "mutation",
+        "internal",
+        { authorRef: string; body: any; commentId: string },
+        null,
+        Name
+      >;
       post: FunctionReference<
         "mutation",
         "internal",
@@ -36,11 +43,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         { commentId: string },
         Name
       >;
-      edit: FunctionReference<
+      prune: FunctionReference<
         "mutation",
         "internal",
-        { authorRef: string; body: any; commentId: string },
-        null,
+        { batch: number; before?: number },
+        number,
         Name
       >;
       remove: FunctionReference<
@@ -57,15 +64,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         null,
         Name
       >;
-      prune: FunctionReference<
-        "mutation",
+    };
+    queries: {
+      count: FunctionReference<
+        "query",
         "internal",
-        { batch: number; before?: number },
+        { resourceRef: string },
         number,
         Name
       >;
-    };
-    queries: {
       get: FunctionReference<
         "query",
         "internal",
@@ -116,13 +123,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           pageStatus?: "SplitRecommended" | "SplitRequired" | null;
           splitCursor?: string | null;
         },
-        Name
-      >;
-      count: FunctionReference<
-        "query",
-        "internal",
-        { resourceRef: string },
-        number,
         Name
       >;
     };
