@@ -25,7 +25,7 @@ export const get = query({
   args: { commentId: v.id("comments") },
   returns: v.union(v.null(), commentView),
   handler: async (ctx, args) => {
-    const comment = await ctx.db.get(args.commentId);
+    const comment = await ctx.db.get("comments", args.commentId);
     return comment === null ? null : view(comment);
   },
 });

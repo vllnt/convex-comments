@@ -29,7 +29,7 @@ export const post = mutation({
   returns: v.object({ commentId: v.id("comments") }),
   handler: async (ctx, args) => {
     if (args.parentId !== undefined) {
-      const parent = await ctx.db.get(args.parentId);
+      const parent = await ctx.db.get("comments", args.parentId);
       if (parent === null) {
         throw new ConvexError({
           code: "PARENT_NOT_FOUND",
@@ -82,7 +82,7 @@ export const edit = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const comment = await ctx.db.get(args.commentId);
+    const comment = await ctx.db.get("comments", args.commentId);
     if (comment === null) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -103,7 +103,7 @@ export const edit = mutation({
     }
 
     const now = Date.now();
-    await ctx.db.patch(comment._id, {
+    await ctx.db.patch("comments", comment._id, {
       body: args.body,
       editedAt: now,
       updatedAt: now,
@@ -125,7 +125,7 @@ export const remove = mutation({
   args: { commentId: v.id("comments"), authorRef: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const comment = await ctx.db.get(args.commentId);
+    const comment = await ctx.db.get("comments", args.commentId);
     if (comment === null) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -141,7 +141,7 @@ export const remove = mutation({
     if (comment.status === "deleted") {
       return null;
     }
-    await ctx.db.patch(comment._id, {
+    await ctx.db.patch("comments", comment._id, {
       status: "deleted",
       body: undefined,
       updatedAt: Date.now(),
@@ -168,7 +168,7 @@ export const resolve = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const comment = await ctx.db.get(args.commentId);
+    const comment = await ctx.db.get("comments", args.commentId);
     if (comment === null) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -191,7 +191,7 @@ export const resolve = mutation({
     if (comment.status === target) {
       return null;
     }
-    await ctx.db.patch(comment._id, { status: target, updatedAt: Date.now() });
+    await ctx.db.patch("comments", comment._id, { status: target, updatedAt: Date.now() });
     return null;
   },
 });
@@ -219,7 +219,7 @@ export const prune = mutation({
       .take(args.batch);
 
     for (const row of stale) {
-      await ctx.db.delete(row._id);
+      await ctx.db.delete("comments", row._id);
     }
     const removed = stale.length;
 
