@@ -67,16 +67,16 @@ comment cannot be resolved (`DELETED`); a missing id throws `NOT_FOUND`.
 
 ### `prune(ctx, opts?) → number`
 
-`opts`: `{ before?: number; batch?: number }` (defaults: `before = Date.now()`,
-`batch = 200`).
+`opts`: `{ before?: number; batch?: number }` (defaults: `before = Date.now() - 30 days`,
+`batch = 200`; valid batch range: 1–500).
 
-Delete up to `batch` **soft-deleted** comments whose `updatedAt < before`, oldest
-first (via the `by_status_updated` index), and return the count removed in the
-first pass. Open and resolved comments are never pruned. If a full batch was
-removed the sweep self-reschedules through the component scheduler until the
-deleted tail is clean. Idempotent — safe to run anytime. A built-in daily cron
-drives it automatically; call `prune` directly only for an extra or custom-cadence
-sweep.
+Page through **soft-deleted** comments whose `updatedAt < before`, oldest first
+(via the `by_status_updated` index), and delete only leaf tombstones. A tombstone
+with replies remains so no reply acquires a dangling `parentId`. Open and resolved
+comments are never pruned. The sweep self-reschedules through the component
+scheduler, then starts one fresh pass when deletions may have made ancestors into
+leaves. It is idempotent and a built-in daily cron drives it automatically; call
+`prune` directly only for an extra or custom-cadence sweep.
 
 ## Queries
 

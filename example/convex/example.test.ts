@@ -552,7 +552,7 @@ describe("comments — prune (bounded + self-rescheduling)", () => {
     ).not.toBeNull();
   });
 
-  test("prune with no cutoff defaults to server now", async () => {
+  test("prune with no cutoff honors the default retention window", async () => {
     const t = setup();
     const { commentId } = await t.mutation(api.example.post, {
       resourceRef: "r",
@@ -560,8 +560,55 @@ describe("comments — prune (bounded + self-rescheduling)", () => {
       body: "x",
     });
     await t.mutation(api.example.remove, { commentId, authorRef: "u" });
-    vi.setSystemTime(1_000);
+
+    vi.setSystemTime(30 * 24 * 60 * 60 * 1_000);
+    expect(await t.mutation(api.example.prune, {})).toBe(0);
+    expect(await t.query(api.example.get, { commentId })).not.toBeNull();
+
+    vi.setSystemTime(30 * 24 * 60 * 60 * 1_000 + 1);
     expect(await t.mutation(api.example.prune, {})).toBe(1);
+    expect(await t.query(api.example.get, { commentId })).toBeNull();
+  });
+
+  test("preserves a deleted parent tombstone while any reply exists", async () => {
+    const t = setup();
+    const parent = await t.mutation(api.example.post, {
+      resourceRef: "r",
+      authorRef: "u",
+      body: "parent",
+    });
+    const reply = await t.mutation(api.example.post, {
+      resourceRef: "r",
+      authorRef: "v",
+      body: "reply",
+      parentId: parent.commentId,
+    });
+    await t.mutation(api.example.remove, {
+      commentId: parent.commentId,
+      authorRef: "u",
+    });
+
+    vi.setSystemTime(1_000);
+    expect(
+      await t.mutation(api.example.prune, { before: 1_000, batch: 1 }),
+    ).toBe(0);
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(await t.query(api.example.get, { commentId: parent.commentId })).not.toBeNull();
+    expect(await t.query(api.example.get, { commentId: reply.commentId })).not.toBeNull();
+  });
+
+  test("rejects a non-finite cutoff", async () => {
+    const t = setup();
+    await expect(
+      t.mutation(api.example.prune, { before: Number.NaN, batch: 1 }),
+    ).rejects.toThrow("before must be finite");
+  });
+
+  test.each([Number.NaN, 0, -1, 1.5, 501])("rejects invalid batch %s", async (batch) => {
+    const t = setup();
+    await expect(
+      t.mutation(api.example.prune, { before: 1_000, batch }),
+    ).rejects.toThrow("batch must be an integer between 1 and 500");
   });
 
   test("prune on an empty table returns 0", async () => {
