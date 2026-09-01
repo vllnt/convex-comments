@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- Apply the documented 30-day default retention window instead of pruning newly deleted
+  comments immediately.
+- Preserve deleted parent tombstones while replies exist and paginate retention scans so blocked
+  parents cannot starve later eligible rows.
+- Reject invalid prune batch sizes before querying or self-scheduling.
+
 ### Changed
 
 - Treat Convex `_generated` output as CLI-owned, exclude it from formatting, and expose a

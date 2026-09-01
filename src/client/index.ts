@@ -70,7 +70,12 @@ export interface CommentsComponent {
     prune: FunctionReference<
       "mutation",
       "internal",
-      { before?: number; batch: number },
+      {
+        before?: number;
+        batch: number;
+        cursor?: string | null;
+        removedInSweep?: number;
+      },
       number
     >;
   };
@@ -274,10 +279,10 @@ export class Comments<TBody = unknown> {
   }
 
   /**
-   * Delete soft-deleted comments whose `updatedAt < before` in bounded batches,
-   * oldest first. `before` defaults to the server clock; `batch` caps each pass
-   * and the sweep self-reschedules until the tail is clean. Returns the count
-   * removed in the first pass. The built-in daily cron drives this automatically.
+   * Delete soft-deleted leaf comments whose `updatedAt < before` in bounded
+   * pages. `before` defaults to the server clock minus the 30-day retention
+   * window. Tombstones with replies remain so parent references never dangle.
+   * Returns the count removed in the first pass; the sweep self-reschedules.
    */
   prune(
     ctx: RunMutationCtx,

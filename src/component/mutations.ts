@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { api } from "./_generated/api";
 import { mutation } from "./_generated/server";
+import { DEFAULT_RETENTION_MS } from "../shared";
 import { jsonValue } from "./validators";
 
 /**
@@ -197,36 +198,69 @@ export const resolve = mutation({
 });
 
 /**
- * Delete up to `batch` soft-deleted comments whose `updatedAt < before`, oldest
- * first, via the `by_status_updated` index. `before` defaults to the server clock
- * (`Date.now()`) when omitted, so the built-in cron sweeps exactly the comments
- * deleted-and-stale as of the run. If a full batch was removed there may be more,
- * so the sweep self-reschedules through `ctx.scheduler` until a short batch
- * signals the tail is clean. Idempotent: only ever removes already-`deleted`,
- * past-retention rows. Open and resolved comments are never pruned.
+ * Delete a bounded page of soft-deleted leaf comments older than the retention
+ * cutoff. A tombstone with replies is preserved so those replies never acquire a
+ * dangling `parentId`. The cursor walks past blocked parents; after a sweep that
+ * removed any leaves, one fresh sweep catches ancestors that became leaves.
  */
 export const prune = mutation({
-  args: { before: v.optional(v.number()), batch: v.number() },
+  args: {
+    before: v.optional(v.number()),
+    batch: v.number(),
+    cursor: v.optional(v.union(v.string(), v.null())),
+    removedInSweep: v.optional(v.number()),
+  },
   returns: v.number(),
   handler: async (ctx, args) => {
-    const before = args.before ?? Date.now();
+    if (!Number.isFinite(args.batch) || !Number.isInteger(args.batch) || args.batch < 1 || args.batch > 500) {
+      throw new ConvexError({
+        code: "INVALID_BATCH",
+        message: "batch must be an integer between 1 and 500",
+      });
+    }
+    if (args.before !== undefined && !Number.isFinite(args.before)) {
+      throw new ConvexError({
+        code: "INVALID_BEFORE",
+        message: "before must be finite",
+      });
+    }
 
-    const stale = await ctx.db
+    const before = args.before ?? Date.now() - DEFAULT_RETENTION_MS;
+    const page = await ctx.db
       .query("comments")
       .withIndex("by_status_updated", (q) =>
         q.eq("status", "deleted").lt("updatedAt", before),
       )
-      .take(args.batch);
+      .paginate({ cursor: args.cursor ?? null, numItems: args.batch });
 
-    for (const row of stale) {
-      await ctx.db.delete("comments", row._id);
-    }
-    const removed = stale.length;
+    const replies = await Promise.all(
+      page.page.map((row) =>
+        ctx.db
+          .query("comments")
+          .withIndex("by_resource_parent", (q) =>
+            q.eq("resourceRef", row.resourceRef).eq("parentId", row._id),
+          )
+          .first(),
+      ),
+    );
+    const leaves = page.page.filter((_, index) => replies[index] === null);
+    await Promise.all(leaves.map((row) => ctx.db.delete("comments", row._id)));
+    const removed = leaves.length;
 
-    if (removed === args.batch) {
+    const removedInSweep = (args.removedInSweep ?? 0) + removed;
+    if (!page.isDone) {
       await ctx.scheduler.runAfter(0, api.mutations.prune, {
         before,
         batch: args.batch,
+        cursor: page.continueCursor,
+        removedInSweep,
+      });
+    } else if (removedInSweep > 0) {
+      await ctx.scheduler.runAfter(0, api.mutations.prune, {
+        before,
+        batch: args.batch,
+        cursor: null,
+        removedInSweep: 0,
       });
     }
     return removed;
