@@ -13,6 +13,9 @@ import { jsonValue } from "./validators";
  * boundary. `parentId`, when given, threads this comment as a reply to an existing
  * comment.
  *
+ * @throws `ConvexError({ code: "INVALID_REF" })` when `resourceRef` or `authorRef` is
+ *   empty — an empty author ref would make the comment editable by any caller that
+ *   also passes an empty ref.
  * @throws `ConvexError({ code: "PARENT_NOT_FOUND" })` when `parentId` names no
  *   comment.
  * @throws `ConvexError({ code: "PARENT_MISMATCH" })` when the parent belongs to a
@@ -29,6 +32,12 @@ export const post = mutation({
   },
   returns: v.object({ commentId: v.id("comments") }),
   handler: async (ctx, args) => {
+    if (args.resourceRef === "" || args.authorRef === "") {
+      throw new ConvexError({
+        code: "INVALID_REF",
+        message: "resourceRef and authorRef must be non-empty",
+      });
+    }
     if (args.parentId !== undefined) {
       const parent = await ctx.db.get("comments", args.parentId);
       if (parent === null) {
