@@ -10,6 +10,8 @@ All notable changes to this project are documented here. The format is based on
 
 - `post` rejects an empty `resourceRef` or `authorRef` with
   `ConvexError({ code: "INVALID_REF" })`.
+- `@vllnt/convex-comments/test` now type-checks under `moduleResolution: nodenext`
+  (explicit `.js` relative imports, Vite client types referenced).
 
 ## [0.1.0] - 2026-09-01
 

@@ -1,8 +1,8 @@
 import { ConvexError, v } from "convex/values";
-import { api } from "./_generated/api";
-import { mutation } from "./_generated/server";
-import { DEFAULT_RETENTION_MS } from "../shared";
-import { jsonValue } from "./validators";
+import { api } from "./_generated/api.js";
+import { mutation } from "./_generated/server.js";
+import { DEFAULT_RETENTION_MS } from "../shared.js";
+import { jsonValue } from "./validators.js";
 
 /**
  * Post a comment on a resource and return its id. The comment is inserted `open`
