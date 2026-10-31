@@ -261,10 +261,14 @@ describe("comments — soft delete", () => {
       body: "x",
     });
     await t.mutation(api.example.remove, { commentId, authorRef: "u" });
+    const deletedAt = (await t.query(api.example.get, { commentId }))?.updatedAt;
+    expect(deletedAt).toBeDefined();
     vi.setSystemTime(999);
     await t.mutation(api.example.remove, { commentId, authorRef: "u" });
     // second remove returned early — updatedAt unchanged from the first delete
-    expect((await t.query(api.example.get, { commentId }))?.updatedAt).toBe(0);
+    expect((await t.query(api.example.get, { commentId }))?.updatedAt).toBe(
+      deletedAt,
+    );
   });
 });
 
@@ -280,7 +284,7 @@ describe("comments — adversarial (auth + lifecycle)", () => {
       commentId: ghost.commentId,
       authorRef: "u",
     });
-    await t.mutation(api.example.prune, { before: 1, batch: 200 });
+    await t.mutation(api.example.prune, { before: 10, batch: 200 });
     expect(
       await t.query(api.example.get, { commentId: ghost.commentId }),
     ).toBeNull();
@@ -363,7 +367,7 @@ describe("comments — adversarial (auth + lifecycle)", () => {
       body: "x",
     });
     await t.mutation(api.example.remove, { commentId, authorRef: "u" });
-    await t.mutation(api.example.prune, { before: 1, batch: 200 });
+    await t.mutation(api.example.prune, { before: 10, batch: 200 });
 
     await expect(
       t.mutation(api.example.edit, { commentId, authorRef: "u", body: "y" }),
@@ -385,7 +389,7 @@ describe("comments — adversarial (auth + lifecycle)", () => {
       body: "x",
     });
     await t.mutation(api.example.remove, { commentId, authorRef: "u" });
-    await t.mutation(api.example.prune, { before: 1, batch: 200 });
+    await t.mutation(api.example.prune, { before: 10, batch: 200 });
     await expect(
       t.mutation(api.example.post, {
         resourceRef: "r",
@@ -561,11 +565,13 @@ describe("comments — prune (bounded + self-rescheduling)", () => {
     });
     await t.mutation(api.example.remove, { commentId, authorRef: "u" });
 
-    vi.setSystemTime(30 * 24 * 60 * 60 * 1_000);
+    // convex-test stamps the delete 1 ms after the post even on a frozen clock,
+    // so the retention cutoff equals deletedAt at +1 ms and passes it at +2 ms.
+    vi.setSystemTime(30 * 24 * 60 * 60 * 1_000 + 1);
     expect(await t.mutation(api.example.prune, {})).toBe(0);
     expect(await t.query(api.example.get, { commentId })).not.toBeNull();
 
-    vi.setSystemTime(30 * 24 * 60 * 60 * 1_000 + 1);
+    vi.setSystemTime(30 * 24 * 60 * 60 * 1_000 + 2);
     expect(await t.mutation(api.example.prune, {})).toBe(1);
     expect(await t.query(api.example.get, { commentId })).toBeNull();
   });
