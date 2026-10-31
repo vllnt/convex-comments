@@ -4,24 +4,14 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.1] - Unreleased
 
 ### Fixed
 
-- Apply the documented 30-day default retention window instead of pruning newly deleted
-  comments immediately.
-- Preserve deleted parent tombstones while replies exist and paginate retention scans so blocked
-  parents cannot starve later eligible rows.
-- Reject invalid prune batch sizes before querying or self-scheduling.
+- `post` rejects an empty `resourceRef` or `authorRef` with
+  `ConvexError({ code: "INVALID_REF" })`.
 
-### Changed
-
-- Treat Convex `_generated` output as CLI-owned, exclude it from formatting, and expose a
-  dedicated codegen script.
-- Refresh all direct dependencies to their latest compatible releases for canary validation.
-- Require `convex@^1.45.0` and update `convex-test` to `^0.0.56`.
-
-## [0.1.0] - 2026-06-14
+## [0.1.0] - 2026-09-01
 
 ### Added
 
@@ -52,3 +42,18 @@ All notable changes to this project are documented here. The format is based on
   cron (`crons.ts`); idempotent. Default retention 30 days.
 - Mount-safe: correct under multiple `app.use(component, { name })` mounts — each
   instance is sandboxed, the cron is registered per instance.
+
+### Fixed
+
+- Apply the documented 30-day default retention window instead of pruning newly deleted
+  comments immediately.
+- Preserve deleted parent tombstones while replies exist and paginate retention scans so blocked
+  parents cannot starve later eligible rows.
+- Reject invalid prune batch sizes before querying or self-scheduling.
+
+### Changed
+
+- Treat Convex `_generated` output as CLI-owned, exclude it from formatting, and expose a
+  dedicated codegen script.
+- Refresh all direct dependencies to their latest compatible releases for canary validation.
+- Require `convex@^1.45.0` and update `convex-test` to `^0.0.56`.
