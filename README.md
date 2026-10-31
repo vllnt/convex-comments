@@ -44,12 +44,12 @@ reactively.
 ## Installation
 
 ```bash
-pnpm add @vllnt/convex-comments@canary convex@^1.45.0
+pnpm add @vllnt/convex-comments convex@^1.45.0
 ```
 
-Peer dependency: `convex@^1.45.0`. This README follows `main` and the canary
-channel; `latest` is the separate stable release. Pin an exact canary version
-for reproducible installs.
+Peer dependency: `convex@^1.45.0`. The command installs the latest stable
+release; use `@vllnt/convex-comments@canary` for the newest pre-release build
+from `main`, and pin a resolved canary version for reproducible installs.
 
 ## Quick start
 
