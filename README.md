@@ -156,6 +156,22 @@ pnpm test:coverage  # enforced 100% on covered files
 Tests run against the real component runtime via `convex-test`
 (`@edge-runtime/vm`), not mocks.
 
+### Testing your app
+
+`@vllnt/convex-comments/test` exports `register(t, name = "comments")` to mount
+the component in a `convex-test` instance. It needs `convex-test` and `vitest`
+(with Vite's `import.meta.glob`) in the consuming app:
+
+```ts
+/// <reference types="vite/client" />
+import { convexTest } from "convex-test";
+import { register } from "@vllnt/convex-comments/test";
+import schema from "./schema";
+
+const t = convexTest(schema, import.meta.glob("./**/*.ts"));
+register(t);
+```
+
 ## Documentation
 
 `llms.txt` is the maintained discovery index. `pnpm generate:llms` checks its

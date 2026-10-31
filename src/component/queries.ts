@@ -1,9 +1,9 @@
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { query } from "./_generated/server";
-import { commentView } from "./validators";
-import { VISIBLE_STATUSES } from "../shared";
-import type { Doc } from "./_generated/dataModel";
+import { query } from "./_generated/server.js";
+import { commentView } from "./validators.js";
+import { VISIBLE_STATUSES } from "../shared.js";
+import type { Doc } from "./_generated/dataModel.js";
 
 /** Project a stored comment row to its public view (exposes the id as a string). */
 function view(comment: Doc<"comments">) {

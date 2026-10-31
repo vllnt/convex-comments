@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { commentStatus, jsonValue } from "./validators";
+import { commentStatus, jsonValue } from "./validators.js";
 
 /**
  * Sandboxed table — the comment tree's own concern. A comment is attached to an

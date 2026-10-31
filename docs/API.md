@@ -119,6 +119,7 @@ Coded `ConvexError`s thrown by the component (`error.data.code`):
 | ------------------ | --------------------------- | -------------------------------------------------- |
 | `INVALID_BATCH`    | `prune`                     | Batch must be a finite integer from 1–500.         |
 | `INVALID_BEFORE`   | `prune`                     | The cutoff must be finite.                         |
+| `INVALID_REF`      | `post`                      | `resourceRef` or `authorRef` is an empty string.   |
 | `PARENT_NOT_FOUND` | `post`                      | The `parentId` names no comment.                   |
 | `PARENT_MISMATCH`  | `post`                      | The parent belongs to a different resource.        |
 | `PARENT_DELETED`   | `post`                      | The parent comment is soft-deleted.                |

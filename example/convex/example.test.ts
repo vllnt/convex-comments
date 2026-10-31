@@ -290,6 +290,19 @@ describe("comments — adversarial (auth + lifecycle)", () => {
     ).toBeNull();
   });
 
+  test("post rejects an empty resourceRef or authorRef", async () => {
+    const t = setup();
+    for (const refs of [
+      { resourceRef: "", authorRef: "u" },
+      { resourceRef: "r", authorRef: "" },
+    ]) {
+      await expect(
+        t.mutation(api.example.post, { ...refs, body: "x" }),
+      ).rejects.toThrow(/INVALID_REF/);
+    }
+    expect(await t.query(api.example.count, { resourceRef: "" })).toBe(0);
+  });
+
   test("edit by a non-author is rejected", async () => {
     const t = setup();
     const { commentId } = await t.mutation(api.example.post, {
