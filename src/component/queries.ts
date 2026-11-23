@@ -79,9 +79,9 @@ export const list = query({
 
 /**
  * Count the visible (non-deleted) comments on one `resourceRef`. Reads the
- * resource's maintained `resourceCounts` row (one document); a resource not
- * written since that table existed falls back to scanning its `by_resource`
- * slice. Soft-deleted comments are never counted.
+ * resource's maintained `resourceCounts` row (one document); a resource that
+ * already had comments before that table existed has no row and falls back to
+ * scanning its `by_resource` slice. Soft-deleted comments are never counted.
  */
 export const count = query({
   args: { resourceRef: v.string() },

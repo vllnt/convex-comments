@@ -124,8 +124,8 @@ Full reference: [docs/API.md](docs/API.md).
   are per-call options, not mount settings; the built-in daily cron keeps its
   default retention.
 - Deleted parents remain while any replies exist. `count` reads a maintained
-  per-resource counter (one document); resources untouched since upgrading fall
-  back to a scan until their next `post` or `remove`.
+  per-resource counter (one document); resources that already had comments before
+  upgrading keep the previous scan.
 - Multiple static instances use `app.use(comments, { name: "annotations" })` and
   `new Comments(components.annotations)`.
 

@@ -34,7 +34,7 @@ describe("comments component — maintained visible count", () => {
     expect(counters).toMatchObject([{ resourceRef: "doc", visible: 1 }]);
   });
 
-  test("legacy resources fall back to a scan, then backfill on the first write", async () => {
+  test("legacy resources stay on the scan fallback and never get a partial counter", async () => {
     const t = setup();
     await insertLegacy(t, "open");
     await insertLegacy(t, "resolved");
@@ -42,11 +42,10 @@ describe("comments component — maintained visible count", () => {
     expect(await t.query(api.queries.count, { resourceRef: "doc" })).toBe(2);
     await t.mutation(api.mutations.post, { resourceRef: "doc", authorRef: "a", body: "hi" });
     expect(await t.query(api.queries.count, { resourceRef: "doc" })).toBe(3);
-    const counter = await t.run((ctx) => ctx.db.query("resourceCounts").unique());
-    expect(counter?.visible).toBe(3);
+    expect(await t.run((ctx) => ctx.db.query("resourceCounts").collect())).toEqual([]);
   });
 
-  test("remove on a legacy resource backfills and decrements once; repeat remove is a no-op", async () => {
+  test("remove on a legacy resource stays exact through the fallback; repeat remove is a no-op", async () => {
     const t = setup();
     await insertLegacy(t, "open");
     const legacyId = await t.run(async (ctx) => (await ctx.db.query("comments").first())?._id);
@@ -68,6 +67,31 @@ describe("comments component — maintained visible count", () => {
     await t.mutation(api.mutations.remove, { commentId, authorRef: "a" });
     expect(await t.query(api.queries.count, { resourceRef: "doc" })).toBe(1);
     expect(await t.query(api.queries.count, { resourceRef: "other" })).toBe(1);
+  });
+});
+
+describe("comments component — writes stay within transaction limits", () => {
+  test("post and remove succeed on a legacy resource larger than the read limit", async () => {
+    const t = convexTest({ schema, modules, transactionLimits: true });
+    const body = "x".repeat(512 * 1024);
+    for (let i = 0; i < 34; i++) {
+      await t.run(async (ctx) => {
+        await ctx.db.insert("comments", {
+          resourceRef: "big",
+          authorRef: "legacy",
+          body,
+          status: "open",
+          createdAt: i,
+          updatedAt: i,
+        });
+      });
+    }
+    const { commentId } = await t.mutation(api.mutations.post, { resourceRef: "big", authorRef: "a", body: "new" });
+    await t.mutation(api.mutations.remove, { commentId, authorRef: "a" });
+    const legacyId = await t.run(async (ctx) => (await ctx.db.query("comments").first())?._id);
+    if (legacyId === undefined) throw new Error("missing fixture");
+    await t.mutation(api.mutations.remove, { commentId: legacyId, authorRef: "legacy" });
+    expect(await t.run((ctx) => ctx.db.query("resourceCounts").collect())).toEqual([]);
   });
 });
 
