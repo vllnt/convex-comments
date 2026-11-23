@@ -78,15 +78,22 @@ export const list = query({
 });
 
 /**
- * Count the visible (non-deleted) comments on one `resourceRef`. Reads the whole
- * resource slice via the `by_resource` index and tallies the open/resolved rows —
- * a small per-resource scan, not a global one. Soft-deleted comments are never
- * counted.
+ * Count the visible (non-deleted) comments on one `resourceRef`. Reads the
+ * resource's maintained `resourceCounts` row (one document); a resource that
+ * already had comments before that table existed has no row and falls back to
+ * scanning its `by_resource` slice. Soft-deleted comments are never counted.
  */
 export const count = query({
   args: { resourceRef: v.string() },
   returns: v.number(),
   handler: async (ctx, args) => {
+    const counter = await ctx.db
+      .query("resourceCounts")
+      .withIndex("by_resource", (q) => q.eq("resourceRef", args.resourceRef))
+      .unique();
+    if (counter !== null) {
+      return counter.visible;
+    }
     const all = await ctx.db
       .query("comments")
       .withIndex("by_resource", (q) => q.eq("resourceRef", args.resourceRef))

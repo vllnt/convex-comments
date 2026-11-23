@@ -1,8 +1,30 @@
 import { ConvexError, v } from "convex/values";
 import { api } from "./_generated/api.js";
-import { mutation } from "./_generated/server.js";
+import { mutation, type MutationCtx } from "./_generated/server.js";
 import { DEFAULT_RETENTION_MS } from "../shared.js";
 import { jsonValue } from "./validators.js";
+
+async function adjustVisible(
+  ctx: MutationCtx,
+  resourceRef: string,
+  delta: number,
+): Promise<void> {
+  const counter = await ctx.db
+    .query("resourceCounts")
+    .withIndex("by_resource", (q) => q.eq("resourceRef", resourceRef))
+    .unique();
+  if (counter !== null) {
+    await ctx.db.patch("resourceCounts", counter._id, { visible: counter.visible + delta });
+    return;
+  }
+  const anyComment = await ctx.db
+    .query("comments")
+    .withIndex("by_resource", (q) => q.eq("resourceRef", resourceRef))
+    .first();
+  if (anyComment === null) {
+    await ctx.db.insert("resourceCounts", { resourceRef, visible: delta });
+  }
+}
 
 /**
  * Post a comment on a resource and return its id. The comment is inserted `open`
@@ -60,6 +82,7 @@ export const post = mutation({
       }
     }
 
+    await adjustVisible(ctx, args.resourceRef, 1);
     const now = Date.now();
     const commentId = await ctx.db.insert("comments", {
       resourceRef: args.resourceRef,
@@ -151,6 +174,7 @@ export const remove = mutation({
     if (comment.status === "deleted") {
       return null;
     }
+    await adjustVisible(ctx, comment.resourceRef, -1);
     await ctx.db.patch("comments", comment._id, {
       status: "deleted",
       body: undefined,

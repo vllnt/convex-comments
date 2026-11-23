@@ -108,8 +108,11 @@ narrowed.
 ### `count(ctx, resourceRef) → number`
 
 The number of visible (open or resolved) comments on `resourceRef`. Soft-deleted
-comments are never counted. The query collects the resource's entire comment
-slice, including replies, before tallying; Convex read limits apply.
+comments are never counted. The query reads one maintained counter document per
+resource, so it costs O(1) reads and re-runs only when a comment is posted or
+removed. The counter is created by the first `post` on a resource with no
+comments; a resource that already had comments before the counter existed keeps
+scanning its comment slice.
 
 ## Error codes
 
