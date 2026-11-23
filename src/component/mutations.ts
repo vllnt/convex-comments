@@ -4,25 +4,6 @@ import { mutation, type MutationCtx } from "./_generated/server.js";
 import { DEFAULT_RETENTION_MS, MAX_REF_LENGTH, VISIBLE_STATUSES } from "../shared.js";
 import { jsonValue } from "./validators.js";
 
-/**
- * Post a comment on a resource and return its id. The comment is inserted `open`
- * with `createdAt`/`updatedAt` stamped from the server clock (`Date.now()` inside
- * the handler — never caller-supplied). `resourceRef` (the thing commented on) and
- * `authorRef` (who wrote it) are opaque host refs the component never inspects;
- * `body` is opaque host data narrowed by the host's `bodyValidator` at the client
- * boundary. `parentId`, when given, threads this comment as a reply to an existing
- * comment.
- *
- * @throws `ConvexError({ code: "INVALID_REF" })` when `resourceRef` or `authorRef` is
- *   empty — an empty author ref would make the comment editable by any caller that
- *   also passes an empty ref.
- * @throws `ConvexError({ code: "PARENT_NOT_FOUND" })` when `parentId` names no
- *   comment.
- * @throws `ConvexError({ code: "PARENT_MISMATCH" })` when the parent belongs to a
- *   different resource — a reply must live on the same resource as its parent.
- * @throws `ConvexError({ code: "PARENT_DELETED" })` when the parent is soft-deleted
- *   — you cannot reply under a removed comment.
- */
 async function adjustVisible(
   ctx: MutationCtx,
   resourceRef: string,
@@ -69,6 +50,25 @@ async function assertKnownOrShortRefs(
   }
 }
 
+/**
+ * Post a comment on a resource and return its id. The comment is inserted `open`
+ * with `createdAt`/`updatedAt` stamped from the server clock (`Date.now()` inside
+ * the handler — never caller-supplied). `resourceRef` (the thing commented on) and
+ * `authorRef` (who wrote it) are opaque host refs the component never inspects;
+ * `body` is opaque host data narrowed by the host's `bodyValidator` at the client
+ * boundary. `parentId`, when given, threads this comment as a reply to an existing
+ * comment.
+ *
+ * @throws `ConvexError({ code: "INVALID_REF" })` when `resourceRef` or `authorRef` is
+ *   empty — an empty author ref would make the comment editable by any caller that
+ *   also passes an empty ref.
+ * @throws `ConvexError({ code: "PARENT_NOT_FOUND" })` when `parentId` names no
+ *   comment.
+ * @throws `ConvexError({ code: "PARENT_MISMATCH" })` when the parent belongs to a
+ *   different resource — a reply must live on the same resource as its parent.
+ * @throws `ConvexError({ code: "PARENT_DELETED" })` when the parent is soft-deleted
+ *   — you cannot reply under a removed comment.
+ */
 export const post = mutation({
   args: {
     resourceRef: v.string(),
