@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { api } from "./_generated/api.js";
-import { mutation } from "./_generated/server.js";
-import { DEFAULT_RETENTION_MS } from "../shared.js";
+import { mutation, type MutationCtx } from "./_generated/server.js";
+import { DEFAULT_RETENTION_MS, MAX_REF_LENGTH, VISIBLE_STATUSES } from "../shared.js";
 import { jsonValue } from "./validators.js";
 
 /**
@@ -23,6 +23,27 @@ import { jsonValue } from "./validators.js";
  * @throws `ConvexError({ code: "PARENT_DELETED" })` when the parent is soft-deleted
  *   — you cannot reply under a removed comment.
  */
+async function adjustVisible(
+  ctx: MutationCtx,
+  resourceRef: string,
+  delta: number,
+): Promise<void> {
+  const counter = await ctx.db
+    .query("resourceCounts")
+    .withIndex("by_resource", (q) => q.eq("resourceRef", resourceRef))
+    .unique();
+  if (counter !== null) {
+    await ctx.db.patch("resourceCounts", counter._id, { visible: counter.visible + delta });
+    return;
+  }
+  const existing = await ctx.db
+    .query("comments")
+    .withIndex("by_resource", (q) => q.eq("resourceRef", resourceRef))
+    .collect();
+  const visible = existing.filter((c) => VISIBLE_STATUSES.has(c.status)).length;
+  await ctx.db.insert("resourceCounts", { resourceRef, visible: visible + delta });
+}
+
 export const post = mutation({
   args: {
     resourceRef: v.string(),
@@ -36,6 +57,12 @@ export const post = mutation({
       throw new ConvexError({
         code: "INVALID_REF",
         message: "resourceRef and authorRef must be non-empty",
+      });
+    }
+    if (args.resourceRef.length > MAX_REF_LENGTH || args.authorRef.length > MAX_REF_LENGTH) {
+      throw new ConvexError({
+        code: "INVALID_REF",
+        message: `resourceRef and authorRef must be at most ${MAX_REF_LENGTH} characters`,
       });
     }
     if (args.parentId !== undefined) {
@@ -60,6 +87,7 @@ export const post = mutation({
       }
     }
 
+    await adjustVisible(ctx, args.resourceRef, 1);
     const now = Date.now();
     const commentId = await ctx.db.insert("comments", {
       resourceRef: args.resourceRef,
@@ -151,6 +179,7 @@ export const remove = mutation({
     if (comment.status === "deleted") {
       return null;
     }
+    await adjustVisible(ctx, comment.resourceRef, -1);
     await ctx.db.patch("comments", comment._id, {
       status: "deleted",
       body: undefined,

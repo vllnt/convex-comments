@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [0.1.1] - Unreleased
 
+### Changed
+
+- `count` reads a maintained `resourceCounts` row (one document) instead of collecting every comment
+  on the resource, and re-runs only when a comment is posted or removed. The counter is backfilled
+  on a resource's first `post`/`remove`; until then `count` falls back to the previous scan.
+- `post` rejects a `resourceRef` or `authorRef` longer than 512 characters with `INVALID_REF`.
+
 ### Fixed
 
 - `post` rejects an empty `resourceRef` or `authorRef` with

@@ -108,8 +108,10 @@ narrowed.
 ### `count(ctx, resourceRef) → number`
 
 The number of visible (open or resolved) comments on `resourceRef`. Soft-deleted
-comments are never counted. The query collects the resource's entire comment
-slice, including replies, before tallying; Convex read limits apply.
+comments are never counted. The query reads one maintained counter document per
+resource, so it costs O(1) reads and re-runs only when a comment is posted or
+removed. A resource with no comment written since the counter was introduced
+falls back to scanning its comment slice until its next `post` or `remove`.
 
 ## Error codes
 
@@ -119,7 +121,7 @@ Coded `ConvexError`s thrown by the component (`error.data.code`):
 | ------------------ | --------------------------- | -------------------------------------------------- |
 | `INVALID_BATCH`    | `prune`                     | Batch must be a finite integer from 1–500.         |
 | `INVALID_BEFORE`   | `prune`                     | The cutoff must be finite.                         |
-| `INVALID_REF`      | `post`                      | `resourceRef` or `authorRef` is an empty string.   |
+| `INVALID_REF`      | `post`                      | `resourceRef` or `authorRef` is empty or over 512 characters. |
 | `PARENT_NOT_FOUND` | `post`                      | The `parentId` names no comment.                   |
 | `PARENT_MISMATCH`  | `post`                      | The parent belongs to a different resource.        |
 | `PARENT_DELETED`   | `post`                      | The parent comment is soft-deleted.                |

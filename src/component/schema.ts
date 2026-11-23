@@ -31,4 +31,8 @@ export default defineSchema({
     .index("by_resource_parent", ["resourceRef", "parentId", "createdAt"])
     .index("by_author", ["authorRef", "createdAt"])
     .index("by_status_updated", ["status", "updatedAt"]),
+  resourceCounts: defineTable({
+    resourceRef: v.string(),
+    visible: v.number(),
+  }).index("by_resource", ["resourceRef"]),
 });

@@ -123,8 +123,9 @@ Full reference: [docs/API.md](docs/API.md).
   pass; batch must be an integer from 1–500 and `before` must be finite. These
   are per-call options, not mount settings; the built-in daily cron keeps its
   default retention.
-- Deleted parents remain while any replies exist. `count` scans the resource's
-  comments; it is not a constant-time aggregate.
+- Deleted parents remain while any replies exist. `count` reads a maintained
+  per-resource counter (one document); resources untouched since upgrading fall
+  back to a scan until their next `post` or `remove`.
 - Multiple static instances use `app.use(comments, { name: "annotations" })` and
   `new Comments(components.annotations)`.
 

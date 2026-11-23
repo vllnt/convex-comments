@@ -38,9 +38,10 @@ src/
     └── crons.ts            # daily prune cron (self-rescheduling)
 ```
 
-Sandboxed table: `comments` — indexed `by_resource` (resource listing + count), `by_resource_parent`
-(reply listing), `by_author` (author listing), and `by_status_updated` (retention sweep). No host
-tables are touched. The stored `body` is opaque to the component; the host narrows it via `bodyValidator`
+Sandboxed tables: `comments` — indexed `by_resource` (resource listing + count backfill), `by_resource_parent`
+(reply listing), `by_author` (author listing), and `by_status_updated` (retention sweep); `resourceCounts` —
+one row per resource holding the visible-comment count, maintained by `post`/`remove` and backfilled from a
+`by_resource` scan on a resource's first write. No host tables are touched. The stored `body` is opaque to the component; the host narrows it via `bodyValidator`
 at the client boundary.
 
 ## Ownership boundary
