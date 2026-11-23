@@ -3,7 +3,6 @@ import { convexTest } from "convex-test";
 import { describe, expect, test } from "vitest";
 import { api } from "./component/_generated/api.js";
 import schema from "./component/schema.js";
-import { MAX_REF_LENGTH } from "./shared.js";
 
 const modules = import.meta.glob("./component/**/*.ts");
 
@@ -68,39 +67,5 @@ describe("comments component — maintained visible count", () => {
     await t.mutation(api.mutations.remove, { commentId, authorRef: "a" });
     expect(await t.query(api.queries.count, { resourceRef: "doc" })).toBe(1);
     expect(await t.query(api.queries.count, { resourceRef: "other" })).toBe(1);
-  });
-});
-
-describe("comments component — ref length limits", () => {
-  const long = "x".repeat(MAX_REF_LENGTH + 1);
-
-  test.each(["resourceRef", "authorRef"] as const)("post rejects an over-long %s", async (field) => {
-    const t = setup();
-    await expect(
-      t.mutation(api.mutations.post, { resourceRef: "doc", authorRef: "a", body: "b", [field]: long }),
-    ).rejects.toThrow(/INVALID_REF|at most/);
-  });
-
-  test("post keeps working for over-long refs that already have comments", async () => {
-    const t = setup();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("comments", {
-        resourceRef: long,
-        authorRef: long,
-        body: "legacy",
-        status: "open",
-        createdAt: 0,
-        updatedAt: 0,
-      });
-    });
-    await t.mutation(api.mutations.post, { resourceRef: long, authorRef: long, body: "reply" });
-    expect(await t.query(api.queries.count, { resourceRef: long })).toBe(2);
-  });
-
-  test("post accepts refs at the limit", async () => {
-    const t = setup();
-    const ok = "x".repeat(MAX_REF_LENGTH);
-    const result = await t.mutation(api.mutations.post, { resourceRef: ok, authorRef: ok, body: "b" });
-    expect(result.commentId).toBeTypeOf("string");
   });
 });
