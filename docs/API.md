@@ -110,8 +110,9 @@ narrowed.
 The number of visible (open or resolved) comments on `resourceRef`. Soft-deleted
 comments are never counted. The query reads one maintained counter document per
 resource, so it costs O(1) reads and re-runs only when a comment is posted or
-removed. A resource with no comment written since the counter was introduced
-falls back to scanning its comment slice until its next `post` or `remove`.
+removed. The counter is created by the first `post` on a resource with no
+comments; a resource that already had comments before the counter existed keeps
+scanning its comment slice.
 
 ## Error codes
 

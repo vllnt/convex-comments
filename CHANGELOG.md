@@ -9,8 +9,9 @@ All notable changes to this project are documented here. The format is based on
 ### Changed
 
 - `count` reads a maintained `resourceCounts` row (one document) instead of collecting every comment
-  on the resource, and re-runs only when a comment is posted or removed. The counter is backfilled
-  on a resource's first `post`/`remove`; until then `count` falls back to the previous scan.
+  on the resource, and re-runs only when a comment is posted or removed. The counter is created
+  by the first `post` on a resource with no comments; resources that already had comments keep the
+  previous scan, so no write ever scans a whole resource.
 
 ### Fixed
 

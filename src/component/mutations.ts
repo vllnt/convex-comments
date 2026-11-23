@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { api } from "./_generated/api.js";
 import { mutation, type MutationCtx } from "./_generated/server.js";
-import { DEFAULT_RETENTION_MS, VISIBLE_STATUSES } from "../shared.js";
+import { DEFAULT_RETENTION_MS } from "../shared.js";
 import { jsonValue } from "./validators.js";
 
 async function adjustVisible(
@@ -17,12 +17,13 @@ async function adjustVisible(
     await ctx.db.patch("resourceCounts", counter._id, { visible: counter.visible + delta });
     return;
   }
-  const existing = await ctx.db
+  const anyComment = await ctx.db
     .query("comments")
     .withIndex("by_resource", (q) => q.eq("resourceRef", resourceRef))
-    .collect();
-  const visible = existing.filter((c) => VISIBLE_STATUSES.has(c.status)).length;
-  await ctx.db.insert("resourceCounts", { resourceRef, visible: visible + delta });
+    .first();
+  if (anyComment === null) {
+    await ctx.db.insert("resourceCounts", { resourceRef, visible: delta });
+  }
 }
 
 /**
