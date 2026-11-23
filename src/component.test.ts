@@ -81,6 +81,22 @@ describe("comments component — ref length limits", () => {
     ).rejects.toThrow(/INVALID_REF|at most/);
   });
 
+  test("post keeps working for over-long refs that already have comments", async () => {
+    const t = setup();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("comments", {
+        resourceRef: long,
+        authorRef: long,
+        body: "legacy",
+        status: "open",
+        createdAt: 0,
+        updatedAt: 0,
+      });
+    });
+    await t.mutation(api.mutations.post, { resourceRef: long, authorRef: long, body: "reply" });
+    expect(await t.query(api.queries.count, { resourceRef: long })).toBe(2);
+  });
+
   test("post accepts refs at the limit", async () => {
     const t = setup();
     const ok = "x".repeat(MAX_REF_LENGTH);

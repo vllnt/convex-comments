@@ -44,6 +44,31 @@ async function adjustVisible(
   await ctx.db.insert("resourceCounts", { resourceRef, visible: visible + delta });
 }
 
+async function assertKnownOrShortRefs(
+  ctx: MutationCtx,
+  resourceRef: string,
+  authorRef: string,
+): Promise<void> {
+  const resourceTooLong =
+    resourceRef.length > MAX_REF_LENGTH &&
+    (await ctx.db
+      .query("comments")
+      .withIndex("by_resource", (q) => q.eq("resourceRef", resourceRef))
+      .first()) === null;
+  const authorTooLong =
+    authorRef.length > MAX_REF_LENGTH &&
+    (await ctx.db
+      .query("comments")
+      .withIndex("by_author", (q) => q.eq("authorRef", authorRef))
+      .first()) === null;
+  if (resourceTooLong || authorTooLong) {
+    throw new ConvexError({
+      code: "INVALID_REF",
+      message: `new resourceRef and authorRef values must be at most ${MAX_REF_LENGTH} characters`,
+    });
+  }
+}
+
 export const post = mutation({
   args: {
     resourceRef: v.string(),
@@ -59,12 +84,7 @@ export const post = mutation({
         message: "resourceRef and authorRef must be non-empty",
       });
     }
-    if (args.resourceRef.length > MAX_REF_LENGTH || args.authorRef.length > MAX_REF_LENGTH) {
-      throw new ConvexError({
-        code: "INVALID_REF",
-        message: `resourceRef and authorRef must be at most ${MAX_REF_LENGTH} characters`,
-      });
-    }
+    await assertKnownOrShortRefs(ctx, args.resourceRef, args.authorRef);
     if (args.parentId !== undefined) {
       const parent = await ctx.db.get("comments", args.parentId);
       if (parent === null) {
