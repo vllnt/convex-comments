@@ -6,8 +6,19 @@ All notable changes to this project are documented here. The format is based on
 
 ## [0.1.1] - Unreleased
 
+### Added
+
+- The npm package now ships `docs/API.md`, `CHANGELOG.md` and `llms.txt` (next to the README and
+  LICENSE it already carried), so coding agents can read docs that match the installed version
+  from `node_modules/@vllnt/convex-comments/`. `llms.txt` links to shipped files relatively.
+  `pnpm test:package`, run in CI, fails when a required doc is missing from the tarball, an
+  unexpected file ships, or an `llms.txt` link to a shipped file does not resolve.
+- `docs/API.md` documents every entry point (`.`, `./convex.config`, `./test`,
+  `./_generated/component`) and the exported types.
+
 ### Changed
 
+- `homepage` now points to `https://oss.vllnt.com/packages/convex-comments`.
 - `count` reads a maintained `resourceCounts` row (one document) instead of collecting every comment
   on the resource, and re-runs only when a comment is posted or removed. The counter is created
   by the first `post` on a resource with no comments; resources that already had comments keep the
@@ -19,6 +30,9 @@ All notable changes to this project are documented here. The format is based on
   `ConvexError({ code: "INVALID_REF" })`.
 - `@vllnt/convex-comments/test` now type-checks under `moduleResolution: nodenext`
   (explicit `.js` relative imports, Vite client types referenced).
+- The `bodyValidator` JSDoc in `src/client` no longer says a Convex `v.*` validator has a
+  `.parse`; it does not. `llms.txt` now lists both tables (`comments` and `resourceCounts`) and
+  the `{ commentId }` result of `post`.
 
 ## [0.1.0] - 2026-09-01
 

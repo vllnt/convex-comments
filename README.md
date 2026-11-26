@@ -173,6 +173,13 @@ const t = convexTest(schema, import.meta.glob("./**/*.ts"));
 register(t);
 ```
 
+## For coding agents
+
+The docs are bundled in this package at
+`node_modules/@vllnt/convex-comments/docs/`. They match the installed version.
+Read them before writing code. The package also ships `llms.txt`, `CHANGELOG.md`
+and the TypeScript source in `src/`.
+
 ## Documentation
 
 `llms.txt` is the maintained discovery index. `pnpm generate:llms` checks its
@@ -180,6 +187,17 @@ heading and local links without generating a source bundle.
 
 [API reference](docs/API.md) · [LLM index](llms.txt) ·
 [Security policy](SECURITY.md)
+
+## Related packages
+
+Each is a separate Convex component with its own sandboxed tables; the host
+wires them together.
+
+| Package                                                                        | Use it when                                                                                                                                                 |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@vllnt/convex-reactions`](https://github.com/vllnt/convex-reactions)         | People like, vote or react to a resource (a comment's `commentId` works as its `resourceRef`) instead of writing text. Comments holds text threads only.    |
+| [`@vllnt/convex-notifications`](https://github.com/vllnt/convex-notifications) | You need to tell someone about a reply or mention. Comments never notifies anyone; the host delivers an inbox item after `post`.                            |
+| [`@vllnt/convex-permissions`](https://github.com/vllnt/convex-permissions)     | You need rules for who may post or moderate. Comments enforces only authorship of `edit` / `remove` / `resolve`; the host owns every other access decision. |
 
 ## Contributing
 
@@ -190,11 +208,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 Built by [bntvllnt](https://github.com/bntvllnt) ·
 [bntvllnt.com](https://bntvllnt.com) · [X @bntvllnt](https://x.com/bntvllnt)
 
-Part of the [@vllnt](https://github.com/vllnt) Convex component fleet —
-[vllnt.com](https://vllnt.com)
-
 If this is useful, [sponsor the work](https://github.com/sponsors/bntvllnt).
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+Part of vllnt oss: https://oss.vllnt.com

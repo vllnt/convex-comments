@@ -6,8 +6,9 @@ export type CommentStatus = "open" | "resolved" | "deleted";
 /**
  * Validates and narrows an opaque stored comment `body` to a host type `T` at the
  * client boundary. Receives the raw value the component returned (`unknown`) and
- * MUST return a typed `T` or throw. A `convex/values` validator's `.parse` (or a
- * Zod `.parse`) fits directly; omit it to keep the value unvalidated.
+ * MUST return a typed `T` or throw. Convex `v.*` validators have no `.parse`, so pass
+ * a function such as `(value) => schema.parse(value)` from your own schema library;
+ * omit it to keep the value unvalidated.
  *
  * @typeParam T - The host's stored comment body type.
  */

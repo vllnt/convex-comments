@@ -3,25 +3,35 @@
 > Threaded comments / annotations on any resource — post, reply, edit, resolve, and soft-delete as a Convex component
 
 `@vllnt/convex-comments` is a publishable Convex component. It targets `convex@^1.45.0`.
-It stores one sandboxed table - `comments` (attached to a host-opaque `resourceRef`, authored by an opaque `authorRef`, optionally threaded under a `parentId`, holding a `status` of `open`/`resolved`/`deleted`, an opaque host `body`, an optional `editedAt`, and `createdAt`/`updatedAt` server timestamps). A host mutation calls `post(resourceRef, authorRef, body, parentId?)` to attach a comment and gets its id back; the original author calls `edit`, `remove` (soft-delete), or `resolve` (a non-author caller is rejected with `NOT_AUTHOR`); clients page a resource's thread with `list(resourceRef, paginationOpts, { parentId?, includeDeleted? })` or tally it with `count(resourceRef)` (reactively in Convex). A reply must link a parent on the same, non-deleted resource. Soft-delete keeps the row (preserving replies) but clears the body; a bounded, self-rescheduling `prune` (and a built-in daily cron) sweeps deleted leaf comments past the default 30-day retention window, preserving parents with replies. Batch is 1–500 (default 200); invalid batch/cutoff throws INVALID_BATCH/INVALID_BEFORE; an empty `resourceRef`/`authorRef` on `post` throws INVALID_REF. Time is read from the server clock inside every handler - no caller-supplied clock. The host owns the resource, the author identity, auth, and the `body` type (the client is generic over it, with an optional `bodyValidator` parser narrowing the opaque stored body at the boundary - never a `v.any()` dump); the component owns only the comment tree. Mount-safe: it runs correctly under multiple named `app.use` mounts.
+It stores two sandboxed tables - `comments` (attached to a host-opaque `resourceRef`, authored by an opaque `authorRef`, optionally threaded under a `parentId`, holding a `status` of `open`/`resolved`/`deleted`, an opaque host `body`, an optional `editedAt`, and `createdAt`/`updatedAt` server timestamps) and `resourceCounts` (one row per resource holding the visible-comment count that `count` reads; a resource whose comments pre-date its counter keeps the per-resource scan). Every `Comments` method takes the host `ctx` as its first argument. A host mutation calls `post(ctx, resourceRef, authorRef, body, parentId?)` to attach a comment and gets `{ commentId }` back; the original author calls `edit`, `remove` (soft-delete), or `resolve` (a non-author caller is rejected with `NOT_AUTHOR`); clients page a resource's thread with `list(ctx, resourceRef, paginationOpts, { parentId?, includeDeleted? })` or tally it with `count(ctx, resourceRef)` (reactively in Convex). A reply must link a parent on the same, non-deleted resource. Soft-delete keeps the row (preserving replies) but clears the body; a bounded, self-rescheduling `prune` (and a built-in daily cron) sweeps deleted leaf comments past the default 30-day retention window, preserving parents with replies. Batch is 1–500 (default 200); invalid batch/cutoff throws INVALID_BATCH/INVALID_BEFORE; an empty `resourceRef`/`authorRef` on `post` throws INVALID_REF. The full error-code list is in `docs/API.md`. Time is read from the server clock inside every handler - no caller-supplied clock. The host owns the resource, the author identity, auth, and the `body` type (the client is generic over it, with an optional `bodyValidator` parser narrowing the opaque stored body at the boundary - never a `v.any()` dump); the component owns only the comment tree. Mount-safe: it runs correctly under multiple named `app.use` mounts.
 
-Documentation follows main/canary, not necessarily npm latest. Host parsers are `(unknown) => T` functions, not `v.*.parse`.
+Entry points: `@vllnt/convex-comments` (the `Comments` client and its types), `@vllnt/convex-comments/convex.config` (mount with `app.use`), and `@vllnt/convex-comments/test` (`register(t, name?)` for `convex-test`).
+
+Host parsers are `(unknown) => T` functions, not `v.*.parse`.
+
+## For coding agents
+
+The docs are bundled in this package at `node_modules/@vllnt/convex-comments/docs/`, next to `CHANGELOG.md`, this `llms.txt`, and the TypeScript source in `src/`. They match the installed version. Read them before writing code.
 
 ## Docs
 
-- [README](README.md): Project overview, installation, usage examples, architecture
-- [API Reference](docs/API.md): Public class methods, return shapes, error codes, cron
-- [Changelog](CHANGELOG.md): Version history and release notes
-- [Contributing](CONTRIBUTING.md): Development setup, validation commands, release workflow
+- [README](./README.md): Project overview, installation, usage examples
+- [API Reference](./docs/API.md): Public class methods, return shapes, error codes, cron
+- [Changelog](./CHANGELOG.md): Version history and release notes
 
 ## Examples
 
-- [Example component wrapper](example/convex/example.ts): Host-app wrapper functions
-- [Example tests](example/convex/example.test.ts): End-to-end usage coverage with `convex-test`
+Not bundled in the package; these follow `main` on GitHub.
+
+- [Example component wrapper](https://github.com/vllnt/convex-comments/blob/main/example/convex/example.ts): Host-app wrapper functions
+- [Example tests](https://github.com/vllnt/convex-comments/blob/main/example/convex/example.test.ts): End-to-end usage coverage with `convex-test`
 
 ## Optional
 
-- [AGENTS](AGENTS.md): Canonical agent instructions for this repository
-- [Security Policy](SECURITY.md): Vulnerability reporting policy
-- [Code of Conduct](CODE_OF_CONDUCT.md): Community participation guidelines
-- [License](LICENSE): MIT license
+- [Contributing](https://github.com/vllnt/convex-comments/blob/main/CONTRIBUTING.md): Development setup, validation commands, release workflow
+- [Security Policy](https://github.com/vllnt/convex-comments/blob/main/SECURITY.md): Vulnerability reporting policy
+- [License](./LICENSE): MIT license
+
+## Ecosystem
+
+- [vllnt oss](https://oss.vllnt.com/llms.txt): index of the other vllnt open-source packages
