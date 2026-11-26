@@ -19,8 +19,8 @@ All notable changes to this project are documented here. The format is based on
 ### Changed
 
 - A push to `main` publishes a canary automatically (under the `canary` dist-tag only); the
-  `CANARY_ENABLED` repository-variable gate is removed. Docs-only changes to the shipped files
-  also trigger it.
+  repository-variable gate on canary publishing is removed. Docs-only changes to the shipped
+  files also trigger it.
 - `homepage` now points to `https://oss.vllnt.com/packages/convex-comments`.
 - `count` reads a maintained `resourceCounts` row (one document) instead of collecting every comment
   on the resource, and re-runs only when a comment is posted or removed. The counter is created
