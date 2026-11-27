@@ -11,8 +11,9 @@ All notable changes to this project are documented here. The format is based on
 - The npm package now ships `docs/API.md`, `CHANGELOG.md` and `llms.txt` (next to the README and
   LICENSE it already carried), so coding agents can read docs that match the installed version
   from `node_modules/@vllnt/convex-comments/`. `llms.txt` links to shipped files relatively.
-  `pnpm test:package`, run in CI, fails when a required doc is missing from the tarball, an
-  unexpected file ships, or an `llms.txt` link to a shipped file does not resolve.
+  `pnpm test:package`, run in CI, fails when a required doc or an `exports` target is missing
+  from the tarball, an unexpected file ships, or a `README.md` / `llms.txt` link does not
+  resolve inside the tarball.
 - `docs/API.md` documents every entry point (`.`, `./convex.config`, `./test`,
   `./_generated/component`) and the exported types.
 

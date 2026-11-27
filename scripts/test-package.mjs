@@ -17,7 +17,7 @@ const DOCS = [
 ];
 const LINKED = ["README.md", "llms.txt"];
 const GITHUB_MAIN =
-  /^https:\/\/github\.com\/vllnt\/convex-comments\/(?:blob|tree)\/main\/([^#]+)/;
+  /^https:\/\/github\.com\/vllnt\/convex-comments\/(?:blob|tree)\/main\/([^#?]+)/;
 
 const output = execFileSync(
   "npm",
