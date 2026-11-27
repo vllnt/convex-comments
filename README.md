@@ -186,7 +186,7 @@ and the TypeScript source in `src/`.
 heading and local links without generating a source bundle.
 
 [API reference](docs/API.md) · [LLM index](llms.txt) ·
-[Security policy](SECURITY.md)
+[Security policy](https://github.com/vllnt/convex-comments/blob/main/SECURITY.md)
 
 ## Related packages
 
@@ -201,7 +201,7 @@ wires them together.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](https://github.com/vllnt/convex-comments/blob/main/CONTRIBUTING.md).
 
 ## Author
 
