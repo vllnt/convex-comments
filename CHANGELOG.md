@@ -37,6 +37,10 @@ All notable changes to this project are documented here. The format is based on
   app's test failed to type-check with TS2345. Runtime behavior is unchanged. The repo's
   tests (`example/**`, `src/**/*.test.ts`) are now type-checked by `pnpm typecheck:tests`,
   which `pnpm test` and `pnpm test:coverage` run first.
+- The publish workflow runs `pnpm test:package` in its quality gate, so a canary or stable
+  release no longer publishes a tarball that misses a required doc or `exports` target.
+  `pnpm check:release` (run by `pnpm lint`) fails if that gate or the existing release
+  guards are removed.
 - `@vllnt/convex-comments/test` now type-checks under `moduleResolution: nodenext`
   (explicit `.js` relative imports, Vite client types referenced).
 - The `bodyValidator` JSDoc in `src/client` no longer says a Convex `v.*` validator has a
