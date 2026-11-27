@@ -40,7 +40,7 @@ Omit it to leave the opaque body unvalidated.
 | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@vllnt/convex-comments`                      | `Comments` (class); types `CommentsComponent`, `CommentStatus`, `CommentView`, `CommentsOptions`, `ListOptions`, `Parser`                                   |
 | `@vllnt/convex-comments/convex.config`        | default export: the component definition, mounted with `app.use(comments)` (or `app.use(comments, { name })` for a second instance)                         |
-| `@vllnt/convex-comments/test`                 | `register(t, name = "comments")`: mounts the component in a `convex-test` instance (needs `convex-test` and Vite's `import.meta.glob` in the consuming app) |
+| `@vllnt/convex-comments/test`                 | `register(t, name = "comments")`: mounts the component in the `convex-test` instance `convexTest(schema, modules)` returns for any host schema (needs `convex-test` and Vite's `import.meta.glob` in the consuming app) |
 | `@vllnt/convex-comments/_generated/component` | type `ComponentApi`: the typed function references behind `components.comments`                                                                             |
 
 The TypeScript source ships in `src/`; the compiled client and `.d.ts` files

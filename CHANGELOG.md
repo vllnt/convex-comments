@@ -32,6 +32,11 @@ All notable changes to this project are documented here. The format is based on
 
 - `post` rejects an empty `resourceRef` or `authorRef` with
   `ConvexError({ code: "INVALID_REF" })`.
+- `register(t)` from `@vllnt/convex-comments/test` accepts the `convexTest(schema, modules)`
+  instance of any host schema. It was typed against the component's own schema, so a host
+  app's test failed to type-check with TS2345. Runtime behavior is unchanged. The repo's
+  tests (`example/**`, `src/**/*.test.ts`) are now type-checked by `pnpm typecheck:tests`,
+  which `pnpm test` and `pnpm test:coverage` run first.
 - `@vllnt/convex-comments/test` now type-checks under `moduleResolution: nodenext`
   (explicit `.js` relative imports, Vite client types referenced).
 - The `bodyValidator` JSDoc in `src/client` no longer says a Convex `v.*` validator has a
