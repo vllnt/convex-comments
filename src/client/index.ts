@@ -134,8 +134,11 @@ interface RunMutationCtx {
  *
  * @example
  * ```ts
- * const comments = new Comments(components.comments, {
- *   bodyValidator: v.string().parse,
+ * const comments = new Comments<string>(components.comments, {
+ *   bodyValidator: (value) => {
+ *     if (typeof value !== "string") throw new Error("Expected a string body");
+ *     return value;
+ *   },
  * });
  * const { commentId } = await comments.post(ctx, "post:42", "user:7", "hello");
  * const reply = await comments.post(ctx, "post:42", "user:9", "hi", commentId);

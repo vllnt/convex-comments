@@ -34,6 +34,18 @@ the value written by `post` / `edit` (before storage) and over the value
 returned by `get` / `list` (on read). It must return the typed value or throw.
 Omit it to leave the opaque body unvalidated.
 
+## Entry points
+
+| Import path                                   | Exports                                                                                                                                                     |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@vllnt/convex-comments`                      | `Comments` (class); types `CommentsComponent`, `CommentStatus`, `CommentView`, `CommentsOptions`, `ListOptions`, `Parser`                                   |
+| `@vllnt/convex-comments/convex.config`        | default export: the component definition, mounted with `app.use(comments)` (or `app.use(comments, { name })` for a second instance)                         |
+| `@vllnt/convex-comments/test`                 | `register(t, name = "comments")`: mounts the component in a `convex-test` instance (needs `convex-test` and Vite's `import.meta.glob` in the consuming app) |
+| `@vllnt/convex-comments/_generated/component` | type `ComponentApi`: the typed function references behind `components.comments`                                                                             |
+
+The TypeScript source ships in `src/`; the compiled client and `.d.ts` files
+ship in `dist/`.
+
 ## Mutations
 
 ### `post(ctx, resourceRef, authorRef, body, parentId?) → { commentId }`
@@ -44,9 +56,10 @@ clock. `resourceRef` and `authorRef` are opaque host refs; `body` is opaque host
 data validated against `bodyValidator` before storage. `parentId`, when given,
 threads the comment as a reply.
 
-A `parentId` that names no comment throws
-`ConvexError({ code: "PARENT_NOT_FOUND" })`; a parent on a different resource
-throws `PARENT_MISMATCH`; a soft-deleted parent throws `PARENT_DELETED`.
+An empty `resourceRef` or `authorRef` throws
+`ConvexError({ code: "INVALID_REF" })`. A `parentId` that names no comment
+throws `PARENT_NOT_FOUND`; a parent on a different resource throws
+`PARENT_MISMATCH`; a soft-deleted parent throws `PARENT_DELETED`.
 
 ### `edit(ctx, commentId, authorRef, body) → null`
 
@@ -90,8 +103,8 @@ automatically; call `prune` directly only for an extra or custom-cadence sweep.
 The current view of `commentId`, or `null` if no such comment is held.
 `CommentView` is
 `{ commentId, resourceRef, authorRef, parentId?, body?, status, editedAt?, createdAt, updatedAt }`;
-`body` is narrowed by the host validator when set, and is `undefined` once the
-comment is soft-deleted.
+`status` is `"open"`, `"resolved"` or `"deleted"`. `body` is narrowed by the
+host validator when set, and is `undefined` once the comment is soft-deleted.
 
 ### `list(ctx, resourceRef, paginationOpts, opts?) → PaginationResult<CommentView>`
 
@@ -102,8 +115,8 @@ resource's top level (`parentId === undefined`, excluding soft-deleted) via the
 `by_resource_parent` index. Pass `opts.parentId` to page one comment's direct
 replies via the `by_resource_parent` index, or `opts.includeDeleted` to surface
 removed comments. Takes the standard Convex `paginationOpts` and returns the
-standard paginated envelope (`page`, `isDone`, `continueCursor`) with each row
-narrowed.
+standard paginated envelope (`page`, `isDone`, `continueCursor`, plus the
+optional `splitCursor` and `pageStatus` Convex may add) with each row narrowed.
 
 ### `count(ctx, resourceRef) → number`
 
