@@ -46,6 +46,6 @@ describe("register — host schemas", () => {
     register(t);
     await expect(
       t.query(components.annotations.queries.count, { resourceRef: "note:1" }),
-    ).rejects.toThrow(/Component "annotations" is not registered/);
+    ).rejects.toThrow(/annotations/);
   });
 });

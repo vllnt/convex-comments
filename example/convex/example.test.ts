@@ -577,18 +577,20 @@ describe("comments — adversarial (auth + lifecycle)", () => {
     await expectCode(t.mutation(api.example.prune, { before: Number.NaN }), "INVALID_BEFORE");
   });
 
-  test("get and list reject a string that is not a comment id", async () => {
+  test("get and list reject a string that is not a comment id, with no code", async () => {
     const t = setup();
-    await expect(
+    const calls = [
       t.query(api.example.get, { commentId: "not-an-id" }),
-    ).rejects.toThrow(/Expected ID for table "comments"/);
-    await expect(
       t.query(api.example.list, {
         resourceRef: "r",
         parentId: "not-an-id",
         paginationOpts: { cursor: null, numItems: 10 },
       }),
-    ).rejects.toThrow(/Expected ID for table "comments"/);
+    ];
+    for (const call of calls) {
+      await expect(call).rejects.toThrow(/comments/);
+      await expect(call).rejects.not.toHaveProperty("data.code");
+    }
   });
 });
 

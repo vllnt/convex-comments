@@ -45,9 +45,7 @@ do not pick it up silently. The peer range is unchanged: `convex@^1.45.0`.
   and every README `ts` example type-checks against the built package. `docs/API.md` holds
   signatures, not examples, and has one heading per export and a single error-codes table;
   `llms.txt` carries the same summary, when-to-use list and links. The `package.json`
-  `description` and `keywords` changed to match. The README no longer lists `@vllnt/convex-reactions`,
-  `@vllnt/convex-notifications` or `@vllnt/convex-permissions` as related packages: no code,
-  test or example here uses them.
+  `description` and `keywords` changed to match.
 - README `## Compatibility` states the Node.js range and that on convex 1.45.x you need
   `convex-test` 0.0.71 or earlier (0.0.72 and later need `convex@^1.46.0`).
 - `homepage` now points to `https://oss.vllnt.com/packages/convex-comments`.
@@ -61,9 +59,10 @@ do not pick it up silently. The peer range is unchanged: `convex@^1.45.0`.
   app's test failed to type-check with TS2345. Runtime behavior is unchanged.
 - `@vllnt/convex-comments/test` now type-checks under `moduleResolution: nodenext`
   (explicit `.js` relative imports, Vite client types referenced).
-- The `bodyValidator` JSDoc in `src/client` no longer says a Convex `v.*` validator has a
-  `.parse`; it does not. `llms.txt` now lists both tables (`comments` and `resourceCounts`) and
-  the `{ commentId }` result of `post`.
+- The `bodyValidator` examples in the README and `docs/API.md` and the JSDoc in `src/client` no
+  longer use `v.string().parse`: Convex `v.*` validators have no `.parse`, so that code failed.
+  Pass a function that returns the typed body or throws. `llms.txt` now lists both tables
+  (`comments` and `resourceCounts`) and the `{ commentId }` result of `post`.
 
 ## [0.1.0] - 2026-09-01
 
