@@ -389,13 +389,14 @@ own error unchanged.
 - Peer dependency: `convex@^1.45.0`. Development, unit tests and the docs check
   run on the locked convex version (1.51.0). The 1.45.0 floor is not tested in
   CI.
-- Node.js: `engines` says `>=18`, but convex 1.45–1.48 need Node.js 20 or later
-  and convex 1.49 and later need Node.js 22 or later. CI runs Node.js 24.
+- Node.js: `engines` is `>=20`, the minimum of the `convex@1.45.0` floor;
+  convex 1.49 and later need Node.js 22 or later. CI runs Node.js 24.
 - ES modules only. The component functions run in the default Convex runtime
   (no Node.js actions).
 - `@vllnt/convex-comments/test` ships as TypeScript source and needs Vite's
   `import.meta.glob`; it type-checks with `moduleResolution` `Bundler` and
-  `NodeNext`.
+  `NodeNext`. On convex 1.45.x use convex-test 0.0.71 or earlier: 0.0.72 and
+  later need `convex@^1.46.0`.
 - React: not applicable. The package is backend-only and has no `./react` entry;
   call your own wrappers with `useQuery` or `usePaginatedQuery`. For a web UI,
   ui.vllnt.com has [Comment Pin](https://ui.vllnt.com/components/comment-pin)

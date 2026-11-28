@@ -14,6 +14,10 @@ function setup() {
   return t;
 }
 
+async function expectCode(call: Promise<unknown>, code: string): Promise<void> {
+  await expect(call).rejects.toMatchObject({ data: { code } });
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(0);
@@ -152,6 +156,45 @@ describe("comments — happy path (post → list → count)", () => {
     expect(r.isDone).toBe(true);
     expect(await t.query(api.example.count, { resourceRef: "nobody" })).toBe(0);
   });
+
+  test("list with a parentId from another resource returns an empty page", async () => {
+    const t = setup();
+    const { commentId: parent } = await t.mutation(api.example.post, {
+      resourceRef: "post:1",
+      authorRef: "u",
+      body: "top",
+    });
+    await t.mutation(api.example.post, {
+      resourceRef: "post:1",
+      authorRef: "u",
+      body: "reply",
+      parentId: parent,
+    });
+    const r = await t.query(api.example.list, {
+      resourceRef: "post:2",
+      parentId: parent,
+      paginationOpts: { cursor: null, numItems: 10 },
+    });
+    expect(r.page).toEqual([]);
+    expect(r.isDone).toBe(true);
+  });
+
+  test("count includes resolved comments and replies", async () => {
+    const t = setup();
+    const { commentId: parent } = await t.mutation(api.example.post, {
+      resourceRef: "r",
+      authorRef: "u",
+      body: "top",
+    });
+    await t.mutation(api.example.post, {
+      resourceRef: "r",
+      authorRef: "v",
+      body: "reply",
+      parentId: parent,
+    });
+    await t.mutation(api.example.resolve, { commentId: parent, authorRef: "u" });
+    expect(await t.query(api.example.count, { resourceRef: "r" })).toBe(2);
+  });
 });
 
 describe("comments — edit / resolve", () => {
@@ -172,6 +215,22 @@ describe("comments — edit / resolve", () => {
     expect(c?.body).toBe("second");
     expect(c?.editedAt).toBe(1_000);
     expect(c?.updatedAt).toBe(1_000);
+  });
+
+  test("edit keeps a resolved comment resolved", async () => {
+    const t = setup();
+    const { commentId } = await t.mutation(api.example.post, {
+      resourceRef: "r",
+      authorRef: "u",
+      body: "first",
+    });
+    await t.mutation(api.example.resolve, { commentId, authorRef: "u" });
+    vi.setSystemTime(2_000);
+    await t.mutation(api.example.edit, { commentId, authorRef: "u", body: "second" });
+    const c = await t.query(api.example.get, { commentId });
+    expect(c?.status).toBe("resolved");
+    expect(c?.body).toBe("second");
+    expect(c?.editedAt).toBe(2_000);
   });
 
   test("resolve toggles open → resolved → open (author only)", async () => {
@@ -269,6 +328,38 @@ describe("comments — soft delete", () => {
     expect((await t.query(api.example.get, { commentId }))?.updatedAt).toBe(
       deletedAt,
     );
+  });
+
+  test("removing a deleted comment as another author is NOT_AUTHOR", async () => {
+    const t = setup();
+    const { commentId } = await t.mutation(api.example.post, {
+      resourceRef: "r",
+      authorRef: "u",
+      body: "x",
+    });
+    await t.mutation(api.example.remove, { commentId, authorRef: "u" });
+    await expectCode(
+      t.mutation(api.example.remove, { commentId, authorRef: "intruder" }),
+      "NOT_AUTHOR",
+    );
+  });
+
+  test("includeDeleted shows a deleted row without its body", async () => {
+    const t = setup();
+    const { commentId } = await t.mutation(api.example.post, {
+      resourceRef: "r",
+      authorRef: "u",
+      body: "secret",
+    });
+    await t.mutation(api.example.remove, { commentId, authorRef: "u" });
+    const all = await t.query(api.example.list, {
+      resourceRef: "r",
+      includeDeleted: true,
+      paginationOpts: { cursor: null, numItems: 10 },
+    });
+    expect(all.page).toHaveLength(1);
+    expect(all.page[0]?.status).toBe("deleted");
+    expect(all.page[0]?.body).toBeUndefined();
   });
 });
 
@@ -447,6 +538,60 @@ describe("comments — adversarial (auth + lifecycle)", () => {
       }),
     ).rejects.toThrow(/cannot reply under a deleted comment/);
   });
+
+  test("every documented error carries its code in error.data.code", async () => {
+    const t = setup();
+    const { commentId: open } = await t.mutation(api.example.post, {
+      resourceRef: "r",
+      authorRef: "u",
+      body: "x",
+    });
+    const { commentId: missing } = await t.mutation(api.example.post, {
+      resourceRef: "r",
+      authorRef: "u",
+      body: "z",
+    });
+    await t.mutation(api.example.remove, { commentId: missing, authorRef: "u" });
+    vi.setSystemTime(1_000);
+    await t.mutation(api.example.prune, { before: 1_000, batch: 200 });
+    expect(await t.query(api.example.get, { commentId: missing })).toBeNull();
+    const { commentId: gone } = await t.mutation(api.example.post, {
+      resourceRef: "r",
+      authorRef: "u",
+      body: "y",
+    });
+    await t.mutation(api.example.remove, { commentId: gone, authorRef: "u" });
+
+    const reply = { resourceRef: "r", authorRef: "u", body: "re" };
+    await expectCode(t.mutation(api.example.post, { ...reply, authorRef: "" }), "INVALID_REF");
+    await expectCode(t.mutation(api.example.post, { ...reply, parentId: missing }), "PARENT_NOT_FOUND");
+    await expectCode(
+      t.mutation(api.example.post, { ...reply, resourceRef: "other", parentId: open }),
+      "PARENT_MISMATCH",
+    );
+    await expectCode(t.mutation(api.example.post, { ...reply, parentId: gone }), "PARENT_DELETED");
+    await expectCode(t.mutation(api.example.edit, { commentId: missing, authorRef: "u", body: "e" }), "NOT_FOUND");
+    await expectCode(t.mutation(api.example.edit, { commentId: open, authorRef: "v", body: "e" }), "NOT_AUTHOR");
+    await expectCode(t.mutation(api.example.resolve, { commentId: gone, authorRef: "u" }), "DELETED");
+    await expectCode(t.mutation(api.example.prune, { batch: 0 }), "INVALID_BATCH");
+    await expectCode(t.mutation(api.example.prune, { before: Number.NaN }), "INVALID_BEFORE");
+  });
+
+  test("get and list reject a string that is not a comment id, with no code", async () => {
+    const t = setup();
+    const calls = [
+      t.query(api.example.get, { commentId: "not-an-id" }),
+      t.query(api.example.list, {
+        resourceRef: "r",
+        parentId: "not-an-id",
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ];
+    for (const call of calls) {
+      await expect(call).rejects.toThrow(/comments/);
+      await expect(call).rejects.not.toHaveProperty("data.code");
+    }
+  });
 });
 
 describe("comments — host body validator (strict client)", () => {
@@ -499,6 +644,24 @@ describe("comments — host body validator (strict client)", () => {
     expect((await t.query(api.example.getStrict, { commentId }))?.body).toBe(
       "good",
     );
+  });
+
+  test("a stored body that fails a stricter validator makes get and list throw", async () => {
+    const t = setup();
+    const { commentId } = await t.mutation(api.example.post, {
+      resourceRef: "r",
+      authorRef: "u",
+      body: "",
+    });
+    await expect(t.query(api.example.getStrict, { commentId })).rejects.toThrow(
+      /invalid body/,
+    );
+    await expect(
+      t.query(api.example.listStrict, {
+        resourceRef: "r",
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).rejects.toThrow(/invalid body/);
   });
 });
 
@@ -616,11 +779,36 @@ describe("comments — prune (bounded + self-rescheduling)", () => {
     expect(await t.query(api.example.get, { commentId: reply.commentId })).not.toBeNull();
   });
 
-  test("rejects a non-finite cutoff", async () => {
+  test.each([Number.NaN, Infinity, -Infinity])("rejects a non-finite cutoff %s", async (before) => {
     const t = setup();
     await expect(
-      t.mutation(api.example.prune, { before: Number.NaN, batch: 1 }),
+      t.mutation(api.example.prune, { before, batch: 1 }),
     ).rejects.toThrow("before must be finite");
+  });
+
+  test.each([1, 500])("accepts batch %s", async (batch) => {
+    const t = setup();
+    const { commentId } = await t.mutation(api.example.post, {
+      resourceRef: "r",
+      authorRef: "u",
+      body: "x",
+    });
+    await t.mutation(api.example.remove, { commentId, authorRef: "u" });
+    vi.setSystemTime(1_000);
+    expect(await t.mutation(api.example.prune, { before: 1_000, batch })).toBe(1);
+  });
+
+  test("keeps resolved comments past the cutoff", async () => {
+    const t = setup();
+    const { commentId } = await t.mutation(api.example.post, {
+      resourceRef: "r",
+      authorRef: "u",
+      body: "x",
+    });
+    await t.mutation(api.example.resolve, { commentId, authorRef: "u" });
+    vi.setSystemTime(1_000);
+    expect(await t.mutation(api.example.prune, { before: 1_000, batch: 200 })).toBe(0);
+    expect((await t.query(api.example.get, { commentId }))?.status).toBe("resolved");
   });
 
   test.each([Number.NaN, 0, -1, 1.5, 501])("rejects invalid batch %s", async (batch) => {

@@ -91,7 +91,7 @@
     "url": "https://github.com/vllnt/convex-comments"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "publishConfig": {
     "access": "public"

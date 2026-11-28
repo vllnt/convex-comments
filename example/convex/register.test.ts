@@ -40,4 +40,12 @@ describe("register — host schemas", () => {
       }),
     ).toBe(0);
   });
+
+  test("a mount that was not registered cannot be called", async () => {
+    const t = convexTest(hostSchema, modules);
+    register(t);
+    await expect(
+      t.query(components.annotations.queries.count, { resourceRef: "note:1" }),
+    ).rejects.toThrow(/annotations/);
+  });
 });
