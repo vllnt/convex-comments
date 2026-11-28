@@ -20,7 +20,9 @@ included. The component stores two tables: `comments` and `resourceCounts` (one
 visible-comment counter per resource). Invalid input throws `ConvexError` with
 `data.code` `INVALID_REF`, `PARENT_NOT_FOUND`, `PARENT_MISMATCH`,
 `PARENT_DELETED`, `NOT_FOUND`, `NOT_AUTHOR`, `DELETED`, `INVALID_BATCH` or
-`INVALID_BEFORE`. `INVALID_REF` is checked only by `post`. A built-in daily cron
+`INVALID_BEFORE`. `INVALID_REF` is checked only by `post`: an empty ref, or a
+new ref longer than 512 UTF-16 code units (refs that already have comments stay
+accepted). A built-in daily cron
 prunes soft-deleted leaf comments older than 30 days; `prune` batch is 1–500
 (default 200). The body is opaque; `bodyValidator` is a `(unknown) => TBody`
 parser run on write and read, not a Convex `v.*` validator. The host owns auth

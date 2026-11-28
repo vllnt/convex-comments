@@ -335,7 +335,7 @@ it in the host with `error instanceof ConvexError` and read `error.data.code`.
 
 | Code               | Thrown by                   | Cause                                                       | Fix                                                                     |
 | ------------------ | --------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `INVALID_REF`      | `post`                      | `resourceRef` or `authorRef` is the empty string            | Pass non-empty refs; resolve the author before calling `post`           |
+| `INVALID_REF`      | `post`                      | `resourceRef` or `authorRef` is empty, or is longer than 512 UTF-16 code units and has no comments yet | Pass non-empty refs; shorten or hash a ref longer than 512 before calling `post` |
 | `PARENT_NOT_FOUND` | `post`                      | `parentId` names no comment (never existed or was pruned)   | Reply to an existing comment, or post at the top level                  |
 | `PARENT_MISMATCH`  | `post`                      | The parent belongs to a different `resourceRef`             | Pass the parent's own `resourceRef`                                     |
 | `PARENT_DELETED`   | `post`                      | The parent is soft-deleted                                  | Post at the top level, or reply to a comment that is not deleted        |
@@ -364,8 +364,12 @@ own error unchanged.
   compare `authorRef` as given, so a comment stored by 0.1.0 with an empty
   `authorRef` accepts any caller that passes `""`. Reject an empty `authorRef`
   in the host before calling them.
-- Refs have no length or format check beyond non-empty; the body is limited
-  only by Convex's document size limit.
+- `post` rejects a new `resourceRef` or `authorRef` longer than 512 UTF-16
+  code units, the JavaScript `string.length` ("😀" counts 2), with
+  `INVALID_REF`. A ref that already has comments (stored by 0.1.0) is accepted
+  at any length; once all its comments are pruned it counts as new again.
+  Refs have no format check; the body is limited only by Convex's document size
+  limit.
 - `count` reads one `resourceCounts` row per resource, created by the first
   `post` on a resource with no comments. A resource whose comments existed
   before that row (from 0.1.0) keeps scanning all its comments on every `count`.

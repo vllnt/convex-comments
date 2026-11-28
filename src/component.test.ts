@@ -3,6 +3,7 @@ import { convexTest } from "convex-test";
 import { describe, expect, test } from "vitest";
 import { api } from "./component/_generated/api.js";
 import schema from "./component/schema.js";
+import { MAX_REF_LENGTH } from "./shared.js";
 
 const modules = import.meta.glob("./component/**/*.ts");
 
@@ -91,5 +92,111 @@ describe("comments component — writes stay within transaction limits", () => {
     if (legacyId === undefined) throw new Error("missing fixture");
     await t.mutation(api.mutations.remove, { commentId: legacyId, authorRef: "legacy" });
     expect(await t.run((ctx) => ctx.db.query("resourceCounts").collect())).toEqual([]);
+  });
+});
+
+describe("comments component — ref length limit", () => {
+  const atLimit = "x".repeat(MAX_REF_LENGTH);
+  const overLimit = "x".repeat(MAX_REF_LENGTH + 1);
+  const emojiAtLimit = "😀".repeat(MAX_REF_LENGTH / 2);
+  const emojiOverLimit = `${emojiAtLimit}x`;
+  const fields = ["resourceRef", "authorRef"] as const;
+
+  async function insertOverLong(t: ReturnType<typeof setup>, resourceRef: string, authorRef: string) {
+    return t.run((ctx) =>
+      ctx.db.insert("comments", { resourceRef, authorRef, body: "old", status: "open", createdAt: 0, updatedAt: 0 }),
+    );
+  }
+
+  test.each(fields)("post accepts a %s of exactly MAX_REF_LENGTH code units", async (field) => {
+    const t = setup();
+    for (const ref of [atLimit, emojiAtLimit]) {
+      expect(ref).toHaveLength(MAX_REF_LENGTH);
+      const result = await t.mutation(api.mutations.post, { resourceRef: "doc", authorRef: "a", body: "b", [field]: ref });
+      expect(await t.query(api.queries.get, { commentId: result.commentId })).toMatchObject({ [field]: ref });
+    }
+  });
+
+  test.each(fields)("post rejects a new %s one code unit over the limit with INVALID_REF", async (field) => {
+    const t = setup();
+    for (const ref of [overLimit, emojiOverLimit]) {
+      expect(ref).toHaveLength(MAX_REF_LENGTH + 1);
+      await expect(
+        t.mutation(api.mutations.post, { resourceRef: "doc", authorRef: "a", body: "b", [field]: ref }),
+      ).rejects.toMatchObject({ data: { code: "INVALID_REF" } });
+    }
+    expect(await t.run((ctx) => ctx.db.query("comments").collect())).toEqual([]);
+  });
+
+  test("the limit counts UTF-16 code units: 257 emoji are 514 units and are rejected", async () => {
+    const t = setup();
+    const emoji = "😀".repeat(MAX_REF_LENGTH / 2 + 1);
+    expect([...emoji]).toHaveLength(MAX_REF_LENGTH / 2 + 1);
+    await expect(
+      t.mutation(api.mutations.post, { resourceRef: emoji, authorRef: "a", body: "b" }),
+    ).rejects.toMatchObject({ data: { code: "INVALID_REF" } });
+  });
+
+  test("an over-long resource that already has comments stays readable and open to new posts", async () => {
+    const t = setup();
+    const legacyId = await insertOverLong(t, overLimit, "legacy");
+    expect(await t.query(api.queries.get, { commentId: legacyId })).toMatchObject({ resourceRef: overLimit });
+    expect(await t.query(api.queries.count, { resourceRef: overLimit })).toBe(1);
+    const { commentId } = await t.mutation(api.mutations.post, { resourceRef: overLimit, authorRef: "a", body: "new" });
+    await t.mutation(api.mutations.post, { resourceRef: overLimit, authorRef: "b", body: "reply", parentId: legacyId });
+    const page = await t.query(api.queries.list, {
+      resourceRef: overLimit,
+      paginationOpts: { cursor: null, numItems: 10 },
+    });
+    expect(page.page.map((c) => c.commentId)).toEqual([legacyId, commentId]);
+    expect(await t.query(api.queries.count, { resourceRef: overLimit })).toBe(3);
+  });
+
+  test("an over-long author that already has comments can keep posting, on any resource", async () => {
+    const t = setup();
+    await insertOverLong(t, "doc", overLimit);
+    const { commentId } = await t.mutation(api.mutations.post, { resourceRef: "other", authorRef: overLimit, body: "new" });
+    expect(await t.query(api.queries.get, { commentId })).toMatchObject({ authorRef: overLimit, resourceRef: "other" });
+  });
+
+  test("grandfathering is per ref: a known over-long resource does not admit a new over-long author", async () => {
+    const t = setup();
+    await insertOverLong(t, overLimit, "legacy");
+    await expect(
+      t.mutation(api.mutations.post, { resourceRef: overLimit, authorRef: `${overLimit}y`, body: "b" }),
+    ).rejects.toMatchObject({ data: { code: "INVALID_REF" } });
+  });
+
+  test("an over-long ref counts as new again once all its comments are pruned", async () => {
+    const t = setup();
+    const id = await insertOverLong(t, overLimit, "legacy");
+    await t.run((ctx) => ctx.db.patch("comments", id, { status: "deleted", body: undefined }));
+    const { commentId } = await t.mutation(api.mutations.post, { resourceRef: overLimit, authorRef: "a", body: "b" });
+    await t.mutation(api.mutations.remove, { commentId, authorRef: "a" });
+    await t.mutation(api.mutations.prune, { before: Date.now() + 1, batch: 10 });
+    expect(await t.run((ctx) => ctx.db.query("comments").collect())).toEqual([]);
+    await expect(
+      t.mutation(api.mutations.post, { resourceRef: overLimit, authorRef: "a", body: "b" }),
+    ).rejects.toMatchObject({ data: { code: "INVALID_REF" } });
+  });
+
+  test("edit, resolve and remove keep working on a row with over-long refs and leave the refs unchanged", async () => {
+    const t = setup();
+    const id = await insertOverLong(t, overLimit, overLimit);
+    await t.mutation(api.mutations.edit, { commentId: id, authorRef: overLimit, body: "edited" });
+    await t.mutation(api.mutations.resolve, { commentId: id, authorRef: overLimit, resolved: true });
+    expect(await t.query(api.queries.get, { commentId: id })).toMatchObject({
+      resourceRef: overLimit,
+      authorRef: overLimit,
+      body: "edited",
+      status: "resolved",
+    });
+    await t.mutation(api.mutations.remove, { commentId: id, authorRef: overLimit });
+    expect(await t.query(api.queries.get, { commentId: id })).toMatchObject({
+      resourceRef: overLimit,
+      authorRef: overLimit,
+      status: "deleted",
+    });
+    expect(await t.query(api.queries.count, { resourceRef: overLimit })).toBe(0);
   });
 });

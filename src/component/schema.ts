@@ -11,10 +11,10 @@ import { commentStatus, jsonValue } from "./validators.js";
  * `status` tracks the lifecycle. `editedAt` records the last edit, distinct from
  * `updatedAt` (any write).
  *
- * The three indexes serve: list/count one resource oldest-first (`by_resource`),
- * walk one parent's direct replies (`by_resource_parent`), list one author's
- * comments (`by_author`), and the retention sweep of soft-deleted rows
- * (`by_status_updated`).
+ * The four indexes serve: list/count one resource oldest-first (`by_resource`),
+ * walk one parent's direct replies (`by_resource_parent`), find whether an
+ * over-long author ref already has comments on `post` (`by_author`), and the
+ * retention sweep of soft-deleted rows (`by_status_updated`).
  */
 export default defineSchema({
   comments: defineTable({

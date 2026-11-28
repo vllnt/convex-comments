@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { api } from "./_generated/api.js";
 import { mutation, type MutationCtx } from "./_generated/server.js";
-import { DEFAULT_RETENTION_MS } from "../shared.js";
+import { DEFAULT_RETENTION_MS, MAX_REF_LENGTH } from "../shared.js";
 import { jsonValue } from "./validators.js";
 
 async function adjustVisible(
@@ -26,6 +26,31 @@ async function adjustVisible(
   }
 }
 
+async function assertKnownOrShortRefs(
+  ctx: MutationCtx,
+  resourceRef: string,
+  authorRef: string,
+): Promise<void> {
+  const newLongResource =
+    resourceRef.length > MAX_REF_LENGTH &&
+    (await ctx.db
+      .query("comments")
+      .withIndex("by_resource", (q) => q.eq("resourceRef", resourceRef))
+      .first()) === null;
+  const newLongAuthor =
+    authorRef.length > MAX_REF_LENGTH &&
+    (await ctx.db
+      .query("comments")
+      .withIndex("by_author", (q) => q.eq("authorRef", authorRef))
+      .first()) === null;
+  if (newLongResource || newLongAuthor) {
+    throw new ConvexError({
+      code: "INVALID_REF",
+      message: `a new resourceRef or authorRef must be at most ${MAX_REF_LENGTH} UTF-16 code units`,
+    });
+  }
+}
+
 /**
  * Post a comment on a resource and return its id. The comment is inserted `open`
  * with `createdAt`/`updatedAt` stamped from the server clock (`Date.now()` inside
@@ -37,7 +62,9 @@ async function adjustVisible(
  *
  * @throws `ConvexError({ code: "INVALID_REF" })` when `resourceRef` or `authorRef` is
  *   empty — an empty author ref would make the comment editable by any caller that
- *   also passes an empty ref.
+ *   also passes an empty ref — or when either ref is longer than `MAX_REF_LENGTH`
+ *   (512 UTF-16 code units, the JavaScript string length) and has no comments yet.
+ *   A ref that already has comments, stored by an older version, stays accepted.
  * @throws `ConvexError({ code: "PARENT_NOT_FOUND" })` when `parentId` names no
  *   comment.
  * @throws `ConvexError({ code: "PARENT_MISMATCH" })` when the parent belongs to a
@@ -60,6 +87,7 @@ export const post = mutation({
         message: "resourceRef and authorRef must be non-empty",
       });
     }
+    await assertKnownOrShortRefs(ctx, args.resourceRef, args.authorRef);
     if (args.parentId !== undefined) {
       const parent = await ctx.db.get("comments", args.parentId);
       if (parent === null) {

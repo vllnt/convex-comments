@@ -7,8 +7,8 @@ All notable changes to this project are documented here. The format is based on
 ## [0.2.0] - 2026-11-28
 
 A minor release, not a patch: it adds the `resourceCounts` component table, `post` now
-rejects empty refs that 0.1.0 accepted, and `engines.node` rises to `>=20`, so `^0.1.0` ranges
-do not pick it up silently. The peer range is unchanged: `convex@^1.45.0`.
+rejects empty refs and new refs longer than 512 UTF-16 code units that 0.1.0 accepted, and
+`engines.node` rises to `>=20`, so `^0.1.0` ranges do not pick it up silently. The peer range is unchanged: `convex@^1.45.0`.
 
 ### Added
 
@@ -25,6 +25,12 @@ do not pick it up silently. The peer range is unchanged: `convex@^1.45.0`.
   pass a non-empty ref. Comments stored by 0.1.0 with an empty `authorRef` still exist, and since
   only `post` checks refs, `edit`, `remove` and `resolve` accept a caller passing `""` as their
   author: hosts should reject an empty `authorRef` before calling those.
+- **Breaking:** `post` rejects a new `resourceRef` or `authorRef` longer than 512 UTF-16 code
+  units (the JavaScript string length: "😀" counts 2) with `ConvexError({ code: "INVALID_REF" })`;
+  0.1.0 accepted any length. Shorten or hash long refs before calling `post`. A ref that already
+  has comments keeps working at any length: `post` still accepts it, and `get`, `list` and `count`
+  read its rows. `edit`, `remove` and `resolve` on such a row keep working and never check or
+  change its refs; once every comment on such a ref is pruned, the ref counts as new again.
 - `engines.node` is `>=20` (was `>=18`): `convex@1.45.0`, the lowest supported peer, already
   needs Node.js 20, and convex 1.49 and later need Node.js 22. Run Node.js 20 or later (22 or
   later with convex 1.49+).
