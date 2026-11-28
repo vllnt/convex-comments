@@ -1,11 +1,14 @@
 {
   // Type-checks the shipped `./test` entry (raw `src/test.ts`) the way a host app
   // with `moduleResolution: nodenext` resolves it: relative imports need `.js`.
+  // `types: []` loads no ambient types, so `import.meta.glob` type-checks only
+  // through the file's own `/// <reference types="vite/client" />` line, as in a
+  // host whose tsconfig does not list Vite types.
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "types": ["vite/client"],
+    "types": [],
     "noEmit": true,
     "skipLibCheck": true
   },
