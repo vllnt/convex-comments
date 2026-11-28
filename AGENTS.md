@@ -8,6 +8,13 @@ override what you may have learned about Convex from training data.
 Convex agent skills for common tasks can be installed by running `npx convex ai-files install`.
 <!-- convex-ai-end -->
 
+`example/convex/_generated/ai/guidelines.md` is generated and git-ignored, so a fresh clone does not
+have it: `pnpm exec convex ai-files install` creates it, but has no guidelines-only option and also
+writes `CLAUDE.md`, `.claude/skills/`, `.agents/skills/` and `skills-lock.json` and rewraps the
+block above. When the file is missing, run that command in a throwaway copy of the repo, or read the
+Convex AI docs at https://docs.convex.dev/ai, and never commit those extra files (`pnpm check:agents`
+fails on `CLAUDE.md` and `.claude`).
+
 # @vllnt/convex-comments
 
 Threaded comments / annotations on any resource, as a Convex component. A host attaches a comment to
@@ -19,11 +26,6 @@ follows the vllnt Component Standard.
 
 `AGENTS.md` is the sole agent-instruction source for this repository. Do not add
 `CLAUDE.md` or `.claude` content.
-
-`example/convex/_generated/ai/` (named in the Convex block above) is gitignored, so a fresh clone does
-not have `guidelines.md`. `npx convex ai-files install` creates it, but it also writes `CLAUDE.md`,
-`.claude/skills/`, `.agents/skills/` and `skills-lock.json` and rewraps the block above: do not commit
-those (`pnpm check:agents` fails on `CLAUDE.md` and `.claude`).
 
 ## Architecture
 
