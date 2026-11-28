@@ -45,7 +45,8 @@ example/convex/             # host app used by the tests (two mounts: comments, 
 docs/API.md                 # full reference (shipped in the tarball)
 scripts/
 ├── check-documentation.mjs # `pnpm check:docs`: docs contract + README examples against the built package
-├── test-package.mjs        # `pnpm test:package`: tarball contents, exports targets, shipped links
+├── test-package.mjs        # `pnpm test:package`: tarball contents, exports targets, shipped links, installed-tarball import + strict NodeNext type-check
+├── package-consumer.mjs    # shared by the two above: pack, install in a temp consumer, type-check
 ├── check-release.mjs       # `pnpm check:release`: publish workflow guards
 └── generate-llms.mjs       # `pnpm generate:llms`: llms.txt heading and local links
 ```

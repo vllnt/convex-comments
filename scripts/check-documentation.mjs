@@ -9,16 +9,15 @@ import { execFileSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readdirSync,
   readFileSync,
-  rmSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import ts from "typescript";
+
+import { locked, run, typecheck, withConsumer } from "./package-consumer.mjs";
 
 /** README `##` sections, in this order, in every @vllnt package. */
 const SECTIONS = [
@@ -653,43 +652,18 @@ function convexHost(installed, examples) {
   };
 }
 
-/** Type-check files with the repository's TypeScript; throws on any error. @param {string} consumer @param {string[]} files */
-function typecheck(consumer, files) {
-  /** @type {ts.CompilerOptions} */
-  const options = {
-    module: ts.ModuleKind.ESNext,
-    moduleResolution: ts.ModuleResolutionKind.Bundler,
-    noEmit: true,
-    // Check the shipped .d.ts too, so a broken one cannot turn the examples into `any`.
-    skipLibCheck: false,
-    strict: true,
-    target: ts.ScriptTarget.ES2022,
-    types: ["vite/client", "node"],
-  };
-  // `types` resolve from the current directory: use the consumer's, not this repository's.
-  const compilerHost = ts.createCompilerHost(options);
-  compilerHost.getCurrentDirectory = () => consumer;
-  const program = ts.createProgram(
-    files.map((file) => join(consumer, file)),
-    options,
-    compilerHost,
-  );
-  const diagnostics = ts.getPreEmitDiagnostics(program);
-  const host = {
-    getCanonicalFileName: (/** @type {string} */ file) => file,
-    getCurrentDirectory: () => consumer,
-    getNewLine: () => "\n",
-  };
-  assert.equal(
-    diagnostics.length,
-    0,
-    ts.formatDiagnostics(diagnostics, host) || "README examples type-check",
-  );
-}
-
-/** Version of a dev dependency as installed in this repository. @param {string} name */
-const locked = (name) =>
-  `${name}@${String(JSON.parse(readFileSync(join("node_modules", name, "package.json"), "utf8")).version)}`;
+/** Compiler options for the README examples. @type {ts.CompilerOptions} */
+const EXAMPLE_OPTIONS = {
+  module: ts.ModuleKind.ESNext,
+  moduleResolution: ts.ModuleResolutionKind.Bundler,
+  noEmit: true,
+  // Check the shipped .d.ts too, so a broken one cannot turn the examples into `any`.
+  skipLibCheck: false,
+  strict: true,
+  target: ts.ScriptTarget.ES2022,
+  // `types` resolve from the consumer, not this repository.
+  types: ["vite/client", "node"],
+};
 
 function main() {
   const root = process.cwd();
@@ -702,52 +676,29 @@ function main() {
     .filter((file) => file && existsSync(file) && file !== "pnpm-lock.yaml");
   checkRetiredDomain(tracked);
 
-  /** @type {{ name: string, version: string }} */
-  const metadata = JSON.parse(readFileSync("package.json", "utf8"));
-  const tarball = `${metadata.name.replace("@", "").replace("/", "-")}-${metadata.version}.tgz`;
-  const consumer = mkdtempSync(join(tmpdir(), "comments-docs-"));
-  /** @param {string} command @param {string[]} args @param {string} [cwd] */
-  const run = (command, args, cwd = consumer) =>
-    execFileSync(command, args, { cwd, stdio: "inherit" });
-  try {
-    run("pnpm", ["pack", "--pack-destination", consumer], root);
-    writeFileSync(
-      join(consumer, "package.json"),
-      JSON.stringify({
-        pnpm: { ignoredBuiltDependencies: ["esbuild"] },
-        private: true,
-        type: "module",
-      }),
-    );
-    writeFileSync(
-      join(consumer, "pnpm-workspace.yaml"),
-      "allowBuilds:\n  esbuild: false\n",
-    );
-    run("pnpm", [
-      "add",
-      "--prefer-offline",
-      join(consumer, tarball),
+  withConsumer(
+    "comments-docs-",
+    [
       ...["convex", "convex-test", "vitest", "vite", "@edge-runtime/vm"].map(
         locked,
       ),
       // vitest's and vite's own .d.ts files need Node.js types (not a repository dependency).
       "@types/node@24.19.2",
-    ]);
-    const installed = join(consumer, "node_modules", metadata.name);
-    const examples = checkDocumentation(installed, consumer);
-    const files = writeHost(
-      consumer,
-      convexHost(installed, examples),
-      examples,
-    );
-    typecheck(consumer, files);
-    run("pnpm", ["exec", "vitest", "run"]);
-    console.log(
-      `OK    docs contract: README, llms.txt and docs/ match the code; ${String(examples.length)} README examples type-check against dist`,
-    );
-  } finally {
-    rmSync(consumer, { force: true, recursive: true });
-  }
+    ],
+    (consumer, installed) => {
+      const examples = checkDocumentation(installed, consumer);
+      const files = writeHost(
+        consumer,
+        convexHost(installed, examples),
+        examples,
+      );
+      typecheck(consumer, files, EXAMPLE_OPTIONS);
+      run("pnpm", ["exec", "vitest", "run"], consumer);
+      console.log(
+        `OK    docs contract: README, llms.txt and docs/ match the code; ${String(examples.length)} README examples type-check against dist`,
+      );
+    },
+  );
 }
 
 main();
