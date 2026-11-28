@@ -19,9 +19,22 @@ rejects empty refs that 0.1.0 accepted, so `^0.1.0` ranges do not pick it up sil
   resolve inside the tarball.
 - `docs/API.md` documents every entry point (`.`, `./convex.config`, `./test`,
   `./_generated/component`) and the exported types.
+- `pnpm check:docs`, run in CI, fails when a README section is missing or out of order, a code
+  block has no language, a relative link does not resolve, an export or error code is not
+  documented, a README example does not type-check against `dist`, or the shared Links, footer or
+  Ecosystem block differs.
 
 ### Changed
 
+- Docs rewritten for coding agents. The README follows the shared @vllnt section order (For
+  coding agents, When to use, Install, Quick start, API, Common tasks, Errors and fixes, Limits
+  and gotchas, Compatibility, Testing, Security, Related packages, Contributing, Links, License)
+  and every README `ts` example type-checks against the built package. `docs/API.md` holds
+  signatures, not examples, and has one heading per export and a single error-codes table;
+  `llms.txt` carries the same summary, when-to-use list and links. The `package.json`
+  `description` and `keywords` changed to match. The README no longer lists `@vllnt/convex-reactions`,
+  `@vllnt/convex-notifications` or `@vllnt/convex-permissions` as related packages: no code,
+  test or example here uses them.
 - A push to `main` publishes a canary automatically (under the `canary` dist-tag only); the
   repository-variable gate on canary publishing is removed. Docs-only changes to the shipped
   files also trigger it.

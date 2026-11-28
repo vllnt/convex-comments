@@ -1,7 +1,7 @@
 {
   "name": "@vllnt/convex-comments",
   "version": "0.2.0",
-  "description": "Threaded comments / annotations on any resource — post, reply, edit, resolve, and soft-delete as a Convex component",
+  "description": "TypeScript Convex component for threaded comments and annotations on any resource: replies, author-only edit and resolve, soft-delete, paging.",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.34.8",
@@ -51,6 +51,7 @@
     "test:coverage": "pnpm typecheck:tests && vitest run --coverage --coverage.reporter=text",
     "generate:llms": "node scripts/generate-llms.mjs",
     "test:package": "node scripts/test-package.mjs",
+    "check:docs": "node scripts/check-documentation.mjs",
     "check:release": "node scripts/check-release.mjs",
     "preversion": "pnpm install --frozen-lockfile && pnpm build && pnpm test:coverage && pnpm typecheck && pnpm generate:llms",
     "check:agents": "node -e \"const f=require('node:fs');if(!f.existsSync('AGENTS.md')||f.existsSync('CLAUDE.md')||f.existsSync('.claude'))process.exit(1)\"",
@@ -99,9 +100,14 @@
   "keywords": [
     "convex",
     "convex-component",
+    "typescript",
     "comments",
-    "threads",
-    "annotations"
+    "threaded-comments",
+    "comment-threads",
+    "replies",
+    "annotations",
+    "discussion",
+    "soft-delete"
   ],
   "pnpm": {
     "minimumReleaseAge": 10080,

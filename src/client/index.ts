@@ -144,6 +144,8 @@ interface RunMutationCtx {
  * const reply = await comments.post(ctx, "post:42", "user:9", "hi", commentId);
  * const thread = await comments.list(ctx, "post:42", { cursor: null, numItems: 50 });
  * ```
+ *
+ * @see https://oss.vllnt.com/packages/convex-comments
  */
 export class Comments<TBody = unknown> {
   private readonly bodyValidator: Parser<TBody> | undefined;
