@@ -160,6 +160,12 @@ export const getStrict = query({
   handler: (ctx, a) => strict.get(ctx, a.commentId),
 });
 
+export const listStrict = query({
+  args: { resourceRef: v.string(), paginationOpts: paginationOptsValidator },
+  returns: paginated,
+  handler: (ctx, a) => strict.list(ctx, a.resourceRef, a.paginationOpts),
+});
+
 /**
  * Host-side resource helper — writes the host's own `resources` table, completely
  * outside the component's sandbox, proving host/component table isolation.
