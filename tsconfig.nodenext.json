@@ -1,0 +1,14 @@
+{
+  // Type-checks the shipped `./test` entry (raw `src/test.ts`) the way a host app
+  // with `moduleResolution: nodenext` resolves it: relative imports need `.js`.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["vite/client"],
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "files": ["src/test.ts"],
+  "include": []
+}
