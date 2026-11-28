@@ -20,7 +20,14 @@ function job(name) {
 }
 
 const quality = job("quality");
-const steps = [...quality.matchAll(/^\s+- run: (.+)$/gmu)].map((m) => m[1]);
+assert.doesNotMatch(
+  quality,
+  /^\s+(?:- )?(?:if|continue-on-error):/mu,
+  "quality job steps must not use `if:` or `continue-on-error` (a disabled gate)",
+);
+const steps = [...quality.matchAll(/^\s+- run: (.+?)(?:\s+#.*)?$/gmu)].map(
+  (m) => m[1],
+);
 const at = (command) => steps.indexOf(command);
 for (const command of [
   "pnpm test:coverage",
