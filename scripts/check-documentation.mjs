@@ -517,7 +517,7 @@ function readTexts(installed) {
  * @param {string} consumer project that has the package installed
  */
 function checkDocumentation(installed, consumer) {
-  /** @type {{ description?: unknown, exports: Record<string, unknown>, keywords?: unknown, name: string, repository?: Repository }} */
+  /** @type {{ description?: unknown, exports: Record<string, unknown>, keywords?: unknown, name: string, repository?: Repository, version: string }} */
   const metadata = JSON.parse(
     readFileSync(join(installed, "package.json"), "utf8"),
   );
@@ -530,6 +530,14 @@ function checkDocumentation(installed, consumer) {
   checkWhenToUse(parts);
   checkIdentity(texts, parts, metadata);
   checkTop(readme, metadata.name);
+  const described = /These docs describe (\S+)\.\s/u.exec(
+    section(parts, "Install").body,
+  )?.[1];
+  assert.equal(
+    described,
+    metadata.version,
+    `Install says "These docs describe ${String(described)}." but package.json version is ${metadata.version}`,
+  );
   checkLinks(installed, texts);
   checkApi(consumer, metadata, {
     headings: anchors(reference),
