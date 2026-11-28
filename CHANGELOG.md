@@ -28,18 +28,20 @@ rejects empty refs that 0.1.0 accepted, so `^0.1.0` ranges do not pick it up sil
 - `homepage` now points to `https://oss.vllnt.com/packages/convex-comments`.
 - **Breaking:** `post` rejects an empty `resourceRef` or `authorRef` with
   `ConvexError({ code: "INVALID_REF" })`; 0.1.0 accepted them. Callers that passed `""` must
-  pass a non-empty ref.
+  pass a non-empty ref. Comments stored by 0.1.0 with an empty `authorRef` still exist, and since
+  only `post` checks refs, `edit`, `remove` and `resolve` accept a caller passing `""` as their
+  author: hosts should reject an empty `authorRef` before calling those.
 - `count` reads a maintained `resourceCounts` row (one document) instead of collecting every comment
   on the resource. The counter is created by the first `post` on a resource with no comments, and
   only `post` and `remove` change it, so for a resource with a counter `count` re-runs only when a
   comment is posted or removed. Resources whose comments predate the counter have no row and keep
   the previous scan (and its reactivity: `count` re-runs on any change to the resource's comments),
   so no write ever scans a whole resource.
-- Downgrading is not safe to repeat: if you run 0.2.0, go back to 0.1.x and later upgrade again,
-  the `resourceCounts` rows missed every post and remove made under 0.1.x, so `count` returns stale
-  numbers. Before upgrading again, delete every row in the component's `resourceCounts` table:
-  `count` then falls back to the scan for each resource that has comments, which stays correct, and
-  a resource with no comments gets a fresh counter on its next `post`.
+- Upgrading again after a downgrade needs a cleanup: if you run 0.2.0, go back to 0.1.x and later
+  upgrade again, the `resourceCounts` rows missed every post and remove made under 0.1.x, so `count`
+  returns stale numbers. Before upgrading again, delete every row in the component's
+  `resourceCounts` table: `count` then falls back to the scan for each resource that has comments,
+  which stays correct, and a resource with no comments gets a fresh counter on its next `post`.
 
 ### Fixed
 

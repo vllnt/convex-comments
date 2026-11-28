@@ -27,7 +27,10 @@ caller-supplied clock.
 **Authorship.** `edit`, `remove`, and `resolve` require the original
 `authorRef`; a non-author caller is rejected (`NOT_AUTHOR`). The component
 enforces only this authorship invariant — the host owns who may post or
-moderate.
+moderate. Comments stored by 0.1.0 with an empty `authorRef` still exist, and
+since only `post` checks refs (`INVALID_REF`), `edit`, `remove`, and `resolve`
+accept a caller passing `""` as their author: hosts should reject an empty
+`authorRef` before calling those.
 
 **Validation.** When `bodyValidator` is set it runs at the client boundary: over
 the value written by `post` / `edit` (before storage) and over the value
