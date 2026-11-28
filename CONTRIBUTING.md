@@ -10,6 +10,7 @@ pnpm build
 pnpm typecheck
 pnpm lint
 pnpm test:coverage
+pnpm check:docs     # after pnpm build: docs contract and README examples
 ```
 
 Use `pnpm build:codegen` only when you need to regenerate checked-in Convex `_generated` files and
@@ -42,7 +43,7 @@ at least one adversarial test (auth-denied, invalid input, boundary).
 - Target `main`
 - One logical change per PR
 - Include tests for new behavior or bug fixes
-- Ensure all checks pass: `pnpm typecheck && pnpm lint && pnpm test:coverage && pnpm build`
+- Ensure all checks pass: `pnpm typecheck && pnpm lint && pnpm test:coverage && pnpm build && pnpm check:docs`
 
 ## Releases
 
