@@ -4,46 +4,30 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - Unreleased
+## [0.2.0] - 2026-11-28
 
-A minor release, not a patch: it adds the `resourceCounts` component table and `post` now
-rejects empty refs that 0.1.0 accepted, so `^0.1.0` ranges do not pick it up silently.
+A minor release, not a patch: it adds the `resourceCounts` component table, `post` now
+rejects empty refs that 0.1.0 accepted, and `engines.node` rises to `>=20`, so `^0.1.0` ranges
+do not pick it up silently. The peer range is unchanged: `convex@^1.45.0`.
 
 ### Added
 
 - The npm package now ships `docs/API.md`, `CHANGELOG.md` and `llms.txt` (next to the README and
   LICENSE it already carried), so coding agents can read docs that match the installed version
   from `node_modules/@vllnt/convex-comments/`. `llms.txt` links to shipped files relatively.
-  `pnpm test:package`, run in CI, fails when a required doc or an `exports` target is missing
-  from the tarball, an unexpected file ships, or a `README.md` / `llms.txt` link does not
-  resolve inside the tarball.
 - `docs/API.md` documents every entry point (`.`, `./convex.config`, `./test`,
   `./_generated/component`) and the exported types.
-- `pnpm check:docs`, run in CI, fails when a README section is missing or out of order, a code
-  block has no language, a relative link does not resolve, an export or error code is not
-  documented, a README example does not type-check against `dist`, or the shared Links, footer or
-  Ecosystem block differs.
 
 ### Changed
 
-- Docs rewritten for coding agents. The README follows the shared @vllnt section order (For
-  coding agents, When to use, Install, Quick start, API, Common tasks, Errors and fixes, Limits
-  and gotchas, Compatibility, Testing, Security, Related packages, Contributing, Links, License)
-  and every README `ts` example type-checks against the built package. `docs/API.md` holds
-  signatures, not examples, and has one heading per export and a single error-codes table;
-  `llms.txt` carries the same summary, when-to-use list and links. The `package.json`
-  `description` and `keywords` changed to match. The README no longer lists `@vllnt/convex-reactions`,
-  `@vllnt/convex-notifications` or `@vllnt/convex-permissions` as related packages: no code,
-  test or example here uses them.
-- A push to `main` publishes a canary automatically (under the `canary` dist-tag only); the
-  repository-variable gate on canary publishing is removed. Docs-only changes to the shipped
-  files also trigger it.
-- `homepage` now points to `https://oss.vllnt.com/packages/convex-comments`.
 - **Breaking:** `post` rejects an empty `resourceRef` or `authorRef` with
   `ConvexError({ code: "INVALID_REF" })`; 0.1.0 accepted them. Callers that passed `""` must
   pass a non-empty ref. Comments stored by 0.1.0 with an empty `authorRef` still exist, and since
   only `post` checks refs, `edit`, `remove` and `resolve` accept a caller passing `""` as their
   author: hosts should reject an empty `authorRef` before calling those.
+- `engines.node` is `>=20` (was `>=18`): `convex@1.45.0`, the lowest supported peer, already
+  needs Node.js 20, and convex 1.49 and later need Node.js 22. Run Node.js 20 or later (22 or
+  later with convex 1.49+).
 - `count` reads a maintained `resourceCounts` row (one document) instead of collecting every comment
   on the resource. The counter is created by the first `post` on a resource with no comments, and
   only `post` and `remove` change it, so for a resource with a counter `count` re-runs only when a
@@ -55,31 +39,26 @@ rejects empty refs that 0.1.0 accepted, so `^0.1.0` ranges do not pick it up sil
   returns stale numbers. Before upgrading again, delete every row in the component's
   `resourceCounts` table: `count` then falls back to the scan for each resource that has comments,
   which stays correct, and a resource with no comments gets a fresh counter on its next `post`.
-- `pnpm test:package` (run in CI and before every publish) now also installs the packed tarball in
-  a clean project, imports every runtime entry point (`.`, `./convex.config`) under Node, and
-  type-checks a strict `NodeNext` consumer that imports every entry point, including the
-  types-only `./_generated/component` and `./test`, with `skipLibCheck` off.
-- `scripts/check-package-contents.sh` (run before every publish) also blocks `*.spec.mts` and
-  `*.spec.cts` files, and CI now runs its test harness.
-- Contributors: the 7-day release-age gate (`minimumReleaseAge`, with `@vllnt/*` exempt) moved
-  from the `package.json` `pnpm` field, which pnpm 10 ignores, to a settings-only root
-  `pnpm-workspace.yaml`, so installs now refuse a dependency version published less than 7 days
-  ago. Renovate follows the same 7-day minimum, also exempting `@vllnt/**`.
-- Contributors: the temporary project that `pnpm test:package` and `pnpm check:docs` install the
-  tarball into (it has no lockfile) now copies the root `pnpm-workspace.yaml`, so that install
-  follows the same 7-day release-age gate and `@vllnt/*` exemption.
+- Docs rewritten for coding agents. The README follows the shared @vllnt section order (For
+  coding agents, When to use, Install, Quick start, API, Common tasks, Errors and fixes, Limits
+  and gotchas, Compatibility, Testing, Security, Related packages, Contributing, Links, License)
+  and every README `ts` example type-checks against the built package. `docs/API.md` holds
+  signatures, not examples, and has one heading per export and a single error-codes table;
+  `llms.txt` carries the same summary, when-to-use list and links. The `package.json`
+  `description` and `keywords` changed to match. The README no longer lists `@vllnt/convex-reactions`,
+  `@vllnt/convex-notifications` or `@vllnt/convex-permissions` as related packages: no code,
+  test or example here uses them.
+- README `## Compatibility` states the Node.js range and that on convex 1.45.x you need
+  `convex-test` 0.0.71 or earlier (0.0.72 and later need `convex@^1.46.0`).
+- `homepage` now points to `https://oss.vllnt.com/packages/convex-comments`.
+- Internal only: CI, release and canary workflows, package, docs and release checks, the 7-day
+  release-age gate, Renovate, and more tests; nothing in the published API changes.
 
 ### Fixed
 
 - `register(t)` from `@vllnt/convex-comments/test` accepts the `convexTest(schema, modules)`
   instance of any host schema. It was typed against the component's own schema, so a host
-  app's test failed to type-check with TS2345. Runtime behavior is unchanged. The repo's
-  tests (`example/**`, `src/**/*.test.ts`) are now type-checked by `pnpm typecheck:tests`,
-  which `pnpm test` and `pnpm test:coverage` run first.
-- The publish workflow runs `pnpm test:package` in its quality gate, so a canary or stable
-  release no longer publishes a tarball that misses a required doc or `exports` target.
-  `pnpm check:release` (run by `pnpm lint`) fails if that gate or the existing release
-  guards are removed.
+  app's test failed to type-check with TS2345. Runtime behavior is unchanged.
 - `@vllnt/convex-comments/test` now type-checks under `moduleResolution: nodenext`
   (explicit `.js` relative imports, Vite client types referenced).
 - The `bodyValidator` JSDoc in `src/client` no longer says a Convex `v.*` validator has a
