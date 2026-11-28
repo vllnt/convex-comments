@@ -61,6 +61,10 @@ rejects empty refs that 0.1.0 accepted, so `^0.1.0` ranges do not pick it up sil
   types-only `./_generated/component` and `./test`, with `skipLibCheck` off.
 - `scripts/check-package-contents.sh` (run before every publish) also blocks `*.spec.mts` and
   `*.spec.cts` files, and CI now runs its test harness.
+- Contributors: the 7-day release-age gate (`minimumReleaseAge`, with `@vllnt/*` exempt) moved
+  from the `package.json` `pnpm` field, which pnpm 10 ignores, to a settings-only root
+  `pnpm-workspace.yaml`, so installs now refuse a dependency version published less than 7 days
+  ago. Renovate follows the same 7-day minimum, also exempting `@vllnt/**`.
 
 ### Fixed
 
