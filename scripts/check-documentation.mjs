@@ -2,6 +2,8 @@
 // Packs the built package, installs the tarball in one temporary consumer, checks
 // the installed README.md, llms.txt and docs/ against the shipped code, then
 // type-checks every README `ts` example against `dist` and runs its test.
+// External URLs are checked by hand before a docs change, not here: network
+// flakiness would make CI fail for reasons unrelated to the docs.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import {
@@ -19,7 +21,7 @@ import { dirname, join } from "node:path";
 import ts from "typescript";
 
 /** README `##` sections, in this order, in every @vllnt package. */
-export const SECTIONS = [
+const SECTIONS = [
   "For coding agents",
   "When to use",
   "Install",
@@ -50,11 +52,11 @@ const OSS = "https://oss.vllnt.com";
  */
 
 /** @param {string} name package name without the scope */
-export const footer = (name) =>
+const footer = (name) =>
   `---\n\nPart of [vllnt open source](${OSS}) · [Package page](${OSS}/packages/${name}) · [vllnt.com](https://vllnt.com) · Built by [bntvllnt](https://bntvllnt.com)\n`;
 
 /** @param {string} name package name without the scope */
-export const ecosystem = (name) =>
+const ecosystem = (name) =>
   [
     "## Ecosystem\n",
     `- [Package page](${OSS}/packages/${name})`,
@@ -70,7 +72,7 @@ export const ecosystem = (name) =>
  * @param {string} name package name without the scope
  * @param {string} repository GitHub repository URL without `.git`
  */
-export const links = (name, repository) =>
+const links = (name, repository) =>
   [
     `- Docs and changelog: [oss.vllnt.com/packages/${name}](${OSS}/packages/${name}) · [release feed](${OSS}/packages/${name}/rss.xml)`,
     `- All @vllnt packages: [oss.vllnt.com](${OSS}) · [search packages and docs on index.vllnt.com](https://index.vllnt.com)`,
@@ -81,15 +83,19 @@ export const links = (name, repository) =>
   ].join("\n");
 
 /** GitHub heading anchor. @param {string} heading */
-export const slug = (heading) =>
+const slug = (heading) =>
   heading
     .trim()
     .toLowerCase()
     .replaceAll(/[^\p{L}\p{N}\s_-]/gu, "")
     .replaceAll(/\s/gu, "-");
 
+/** @param {string} text */
+const escapeRegExp = (text) =>
+  text.replaceAll(/[$()*+.?[\\\]^{|}]/gu, String.raw`\$&`);
+
 /** Fenced code blocks with 1-based start lines. @param {string} text */
-export function codeBlocks(text) {
+function codeBlocks(text) {
   /** @type {{ blocks: Block[], open: OpenBlock | undefined }} */
   const start = { blocks: [], open: undefined };
   const state = text.split("\n").reduce((current, line, index) => {
@@ -220,7 +226,7 @@ function checkWhenToUse(parts) {
 /** Install and first example near the top; badges below Quick start. @param {string} readme @param {string} packageName */
 function checkTop(readme, packageName) {
   const lines = readme.split("\n");
-  const name = packageName.replaceAll(/[$()*+./?[\\\]^{|}]/gu, String.raw`\$&`);
+  const name = escapeRegExp(packageName);
   const pattern = new RegExp(String.raw`\b(?:add|install)\s+${name}\b`, "u");
   const install = lines.findIndex((line) => pattern.test(line));
   assert.ok(install !== -1 && install < FIRST_LINES, "install near the top");
@@ -330,18 +336,25 @@ const publicMethods = (checker, symbol) =>
       return !(ts.getCombinedModifierFlags(declaration) & hidden);
     });
 
+/** A README API table row whose first cell starts with `start`, optionally linked. @param {string} table @param {string} start */
+const hasRow = (table, start) =>
+  new RegExp(String.raw`^\| \[?${escapeRegExp(start)}`, "mu").test(table);
+
 /** TSDoc summary, README API row and reference heading. @param {Documented} documented @param {Entry} entry @param {Export} item */
 function checkExport({ headings, table }, { checker, entry }, item) {
   const label = item.name === "default" ? entry.slice(2) : item.name;
-  const row = item.name === "default" ? "`default" : `\`${label}\``;
+  const row = item.name === "default" ? "`default`" : `\`${label}\``;
   assert.ok(hasSummary(checker, item.target), `${label} has no TSDoc summary`);
-  assert.ok(table.includes(row), `README API table lacks ${label}`);
+  assert.ok(hasRow(table, row), `README API table lacks a ${label} row`);
   assert.ok(headings.has(slug(label)), `docs/API.md lacks a ${label} heading`);
   if (!(item.target.flags & ts.SymbolFlags.Class)) return;
   publicMethods(checker, item.target).forEach((method) => {
     const { name } = method;
     assert.ok(hasSummary(checker, method), `${name} has no TSDoc summary`);
-    assert.ok(table.includes(`\`${name}(`), `README API table lacks ${name}`);
+    assert.ok(
+      hasRow(table, `\`${name}(`),
+      `README API table lacks a ${name} row`,
+    );
     assert.ok(headings.has(slug(name)), `docs/API.md lacks a ${name} heading`);
   });
 }
@@ -377,7 +390,10 @@ function checkErrorCodes(installed, errors, reference) {
   assert.ok(codes.size > 0, "found no error codes; update the pattern");
   const table = reference.slice(reference.indexOf("\n## Error codes\n"));
   codes.forEach((code) => {
-    assert.ok(errors.includes(`| \`${code}\``), `Errors and fixes lacks ${code}`);
+    assert.ok(
+      errors.includes(`| \`${code}\``),
+      `Errors and fixes lacks ${code}`,
+    );
     assert.ok(table.includes(`| \`${code}\``), `docs/API.md lacks ${code}`);
   });
 }
@@ -500,7 +516,7 @@ function readTexts(installed) {
  * @param {string} installed package directory inside node_modules
  * @param {string} consumer project that has the package installed
  */
-export function checkDocumentation(installed, consumer) {
+function checkDocumentation(installed, consumer) {
   /** @type {{ description?: unknown, exports: Record<string, unknown>, keywords?: unknown, name: string, repository?: Repository }} */
   const metadata = JSON.parse(
     readFileSync(join(installed, "package.json"), "utf8"),
@@ -538,7 +554,7 @@ export function checkDocumentation(installed, consumer) {
  * repeated paths, and returns the written paths.
  * @param {string} consumer @param {Record<string, string>} stubs @param {{ code: string, path: string }[]} examples
  */
-export function writeHost(consumer, stubs, examples) {
+function writeHost(consumer, stubs, examples) {
   /** @type {string[]} */
   const seen = [];
   /** @type {string[]} */
@@ -592,7 +608,7 @@ const modulesOf = (examples) =>
  * @param {string} installed @param {{ code: string, path: string }[]} examples
  * @returns {Record<string, string>}
  */
-export function convexHost(installed, examples) {
+function convexHost(installed, examples) {
   /** @type {{ name: string }} */
   const { name } = JSON.parse(
     readFileSync(join(installed, "package.json"), "utf8"),
@@ -631,18 +647,24 @@ export function convexHost(installed, examples) {
 
 /** Type-check files with the repository's TypeScript; throws on any error. @param {string} consumer @param {string[]} files */
 function typecheck(consumer, files) {
+  /** @type {ts.CompilerOptions} */
+  const options = {
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    noEmit: true,
+    // Check the shipped .d.ts too, so a broken one cannot turn the examples into `any`.
+    skipLibCheck: false,
+    strict: true,
+    target: ts.ScriptTarget.ES2022,
+    types: ["vite/client", "node"],
+  };
+  // `types` resolve from the current directory: use the consumer's, not this repository's.
+  const compilerHost = ts.createCompilerHost(options);
+  compilerHost.getCurrentDirectory = () => consumer;
   const program = ts.createProgram(
     files.map((file) => join(consumer, file)),
-    {
-      module: ts.ModuleKind.ESNext,
-      moduleResolution: ts.ModuleResolutionKind.Bundler,
-      noEmit: true,
-      // vitest's own .d.ts files need @types/node; `pnpm build` checks dist.
-      skipLibCheck: true,
-      strict: true,
-      target: ts.ScriptTarget.ES2022,
-      types: ["vite/client"],
-    },
+    options,
+    compilerHost,
   );
   const diagnostics = ts.getPreEmitDiagnostics(program);
   const host = {
@@ -700,6 +722,8 @@ function main() {
       ...["convex", "convex-test", "vitest", "vite", "@edge-runtime/vm"].map(
         locked,
       ),
+      // vitest's and vite's own .d.ts files need Node.js types (not a repository dependency).
+      "@types/node@24.19.2",
     ]);
     const installed = join(consumer, "node_modules", metadata.name);
     const examples = checkDocumentation(installed, consumer);
