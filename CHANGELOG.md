@@ -59,6 +59,8 @@ rejects empty refs that 0.1.0 accepted, so `^0.1.0` ranges do not pick it up sil
   a clean project, imports every runtime entry point (`.`, `./convex.config`) under Node, and
   type-checks a strict `NodeNext` consumer that imports every entry point, including the
   types-only `./_generated/component` and `./test`, with `skipLibCheck` off.
+- `scripts/check-package-contents.sh` (run before every publish) also blocks `*.spec.mts` and
+  `*.spec.cts` files, and CI now runs its test harness.
 
 ### Fixed
 
