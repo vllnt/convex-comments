@@ -110,10 +110,6 @@
     "soft-delete"
   ],
   "pnpm": {
-    "minimumReleaseAge": 10080,
-    "minimumReleaseAgeExclude": [
-      "@vllnt/*"
-    ],
     "ignoredBuiltDependencies": [
       "esbuild"
     ],
