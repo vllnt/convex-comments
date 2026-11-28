@@ -53,8 +53,8 @@ scripts/
 └── generate-llms.mjs       # `pnpm generate:llms`: llms.txt heading and local links
 ```
 
-Sandboxed tables: `comments` — indexed `by_resource` (legacy count fallback and the first-post counter check),
-`by_resource_parent` (top-level and reply listing, prune's reply check), `by_author` (no query uses it yet), and `by_status_updated` (retention sweep); `resourceCounts` —
+Sandboxed tables: `comments` — indexed `by_resource` (legacy count fallback, the first-post counter check, and `post`'s check whether an over-long resource ref already has comments),
+`by_resource_parent` (top-level and reply listing, prune's reply check), `by_author` (`post`'s check whether an over-long author ref already has comments), and `by_status_updated` (retention sweep); `resourceCounts` —
 one row per resource holding the visible-comment count, created by the first `post` on a resource
 with no comments and maintained by `post`/`remove`; resources with pre-existing comments keep the `by_resource`
 scan (no unbounded backfill inside a write). No host tables are touched. The stored `body` is opaque to the component; the host narrows it via `bodyValidator`
@@ -100,6 +100,12 @@ vs annotations) mount a second instance (`app.use(component, { name })`).
 - **Threading integrity is checked on `post`:** a `parentId` must name an existing, non-deleted comment
   on the SAME resource (`PARENT_NOT_FOUND` / `PARENT_MISMATCH` / `PARENT_DELETED`). A reply can never
   dangle off a missing parent or cross a resource boundary.
+
+- **Refs are checked on `post` only:** an empty `resourceRef` / `authorRef`, or a new one longer than
+  `MAX_REF_LENGTH` (512, the JavaScript string length in UTF-16 code units), throws `INVALID_REF`. An
+  over-long ref that already has comments (rows from 0.1.0) stays accepted; the `by_resource` /
+  `by_author` lookup runs only on the over-limit path. `edit` / `remove` / `resolve` and the queries
+  never check length, so old rows keep working.
 
 - **Typed-generic opaque body, never `v.any()` dumped raw:** the comment `body` rides through the single
   documented `jsonValue` alias and is narrowed to `TBody` by the host `bodyValidator` at the client

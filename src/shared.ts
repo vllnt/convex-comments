@@ -31,3 +31,10 @@ export const DEFAULT_RETENTION_MS = 2_592_000_000;
 
 /** Default page size for a `prune` pass before the sweep self-reschedules. */
 export const DEFAULT_PRUNE_BATCH = 200;
+
+/**
+ * Longest new `resourceRef` / `authorRef` that `post` accepts, counted as the
+ * JavaScript string length (UTF-16 code units: "😀" counts 2). A ref that already
+ * has comments stays accepted at any length.
+ */
+export const MAX_REF_LENGTH = 512;

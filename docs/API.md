@@ -60,7 +60,11 @@ data validated against `bodyValidator` before storage. `parentId`, when given,
 threads the comment as a reply.
 
 An empty `resourceRef` or `authorRef` throws
-`ConvexError({ code: "INVALID_REF" })`. A `parentId` that names no comment
+`ConvexError({ code: "INVALID_REF" })`, and so does a `resourceRef` or
+`authorRef` longer than 512 UTF-16 code units (the JavaScript string length:
+"😀" counts 2) that has no comments yet. A ref that already has comments,
+stored by an older version, stays accepted at any length; `edit`, `remove`,
+`resolve` and the queries never check length. A `parentId` that names no comment
 throws `PARENT_NOT_FOUND`; a parent on a different resource throws
 `PARENT_MISMATCH`; a soft-deleted parent throws `PARENT_DELETED`.
 
@@ -226,7 +230,7 @@ Coded `ConvexError`s thrown by the component (`error.data.code`):
 | ------------------ | --------------------------- | -------------------------------------------------- |
 | `INVALID_BATCH`    | `prune`                     | Batch must be an integer from 1–500.               |
 | `INVALID_BEFORE`   | `prune`                     | The cutoff must be finite.                         |
-| `INVALID_REF`      | `post`                      | `resourceRef` or `authorRef` is an empty string.   |
+| `INVALID_REF`      | `post`                      | `resourceRef` or `authorRef` is empty, or new and longer than 512 UTF-16 code units. |
 | `PARENT_NOT_FOUND` | `post`                      | The `parentId` names no comment.                   |
 | `PARENT_MISMATCH`  | `post`                      | The parent belongs to a different resource.        |
 | `PARENT_DELETED`   | `post`                      | The parent comment is soft-deleted.                |
