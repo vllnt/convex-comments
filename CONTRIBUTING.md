@@ -44,6 +44,8 @@ at least one adversarial test (auth-denied, invalid input, boundary).
 - One logical change per PR
 - Include tests for new behavior or bug fixes
 - Ensure all checks pass: `pnpm typecheck && pnpm lint && pnpm test:coverage && pnpm build && pnpm check:docs`
+- Dependency updates are a manual pass: no bot proposes them, and `pnpm-workspace.yaml` blocks
+  any version released less than 7 days ago (`@vllnt/*` excepted).
 
 ## Releases
 

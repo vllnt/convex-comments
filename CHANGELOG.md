@@ -50,7 +50,7 @@ do not pick it up silently. The peer range is unchanged: `convex@^1.45.0`.
   `convex-test` 0.0.71 or earlier (0.0.72 and later need `convex@^1.46.0`).
 - `homepage` now points to `https://oss.vllnt.com/packages/convex-comments`.
 - Internal only: CI, release and canary workflows, package, docs and release checks, the 7-day
-  release-age gate, Renovate, and more tests; nothing in the published API changes.
+  release-age gate, and more tests; nothing in the published API changes.
 
 ### Fixed
 
