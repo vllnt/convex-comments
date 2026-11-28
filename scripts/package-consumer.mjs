@@ -27,7 +27,7 @@ export const run = (command, args, cwd) =>
  */
 export function withConsumer(prefix, dependencies, check) {
   const root = process.cwd();
-  /** @type {{ name: string, version: string }} */
+  /** @type {{ name: string, packageManager: string, version: string }} */
   const metadata = JSON.parse(readFileSync("package.json", "utf8"));
   const tarball = `${metadata.name.replace("@", "").replace("/", "-")}-${metadata.version}.tgz`;
   const consumer = mkdtempSync(join(tmpdir(), prefix));
@@ -35,7 +35,10 @@ export function withConsumer(prefix, dependencies, check) {
     run("pnpm", ["pack", "--pack-destination", consumer], root);
     writeFileSync(
       join(consumer, "package.json"),
+      // Same pnpm as the repo: under Corepack a project without `packageManager`
+      // gets the newest pnpm, which may be younger than the 7-day release age.
       JSON.stringify({
+        packageManager: metadata.packageManager,
         pnpm: { ignoredBuiltDependencies: ["esbuild"] },
         private: true,
         type: "module",
