@@ -65,6 +65,9 @@ rejects empty refs that 0.1.0 accepted, so `^0.1.0` ranges do not pick it up sil
   from the `package.json` `pnpm` field, which pnpm 10 ignores, to a settings-only root
   `pnpm-workspace.yaml`, so installs now refuse a dependency version published less than 7 days
   ago. Renovate follows the same 7-day minimum, also exempting `@vllnt/**`.
+- Contributors: the temporary project that `pnpm test:package` and `pnpm check:docs` install the
+  tarball into (it has no lockfile) now copies the root `pnpm-workspace.yaml`, so that install
+  follows the same 7-day release-age gate and `@vllnt/*` exemption.
 
 ### Fixed
 

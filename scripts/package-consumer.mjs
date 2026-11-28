@@ -41,9 +41,12 @@ export function withConsumer(prefix, dependencies, check) {
         type: "module",
       }),
     );
+    // No lockfile here, so pnpm picks transitive versions itself. The temp project
+    // lives outside the repo, so copy the repo's workspace file to keep the same
+    // minimumReleaseAge and minimumReleaseAgeExclude, then add the build policy.
     writeFileSync(
       join(consumer, "pnpm-workspace.yaml"),
-      "allowBuilds:\n  esbuild: false\n",
+      `${readFileSync(join(root, "pnpm-workspace.yaml"), "utf8")}allowBuilds:\n  esbuild: false\n`,
     );
     run(
       "pnpm",
