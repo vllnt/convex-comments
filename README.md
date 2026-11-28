@@ -160,7 +160,7 @@ Tests run against the real component runtime via `convex-test`
 ### Testing your app
 
 `@vllnt/convex-comments/test` exports `register(t, name = "comments")` to mount
-the component in a `convex-test` instance. It needs `convex-test` and `vitest`
+the component in a `convex-test` instance built from your own app schema. It needs `convex-test` and `vitest`
 (with Vite's `import.meta.glob`) in the consuming app:
 
 ```ts

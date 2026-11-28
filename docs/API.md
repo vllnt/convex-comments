@@ -27,7 +27,10 @@ caller-supplied clock.
 **Authorship.** `edit`, `remove`, and `resolve` require the original
 `authorRef`; a non-author caller is rejected (`NOT_AUTHOR`). The component
 enforces only this authorship invariant — the host owns who may post or
-moderate.
+moderate. Comments stored by 0.1.0 with an empty `authorRef` still exist, and
+since only `post` checks refs (`INVALID_REF`), `edit`, `remove`, and `resolve`
+accept a caller passing `""` as their author: hosts should reject an empty
+`authorRef` before calling those.
 
 **Validation.** When `bodyValidator` is set it runs at the client boundary: over
 the value written by `post` / `edit` (before storage) and over the value
@@ -40,7 +43,7 @@ Omit it to leave the opaque body unvalidated.
 | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@vllnt/convex-comments`                      | `Comments` (class); types `CommentsComponent`, `CommentStatus`, `CommentView`, `CommentsOptions`, `ListOptions`, `Parser`                                   |
 | `@vllnt/convex-comments/convex.config`        | default export: the component definition, mounted with `app.use(comments)` (or `app.use(comments, { name })` for a second instance)                         |
-| `@vllnt/convex-comments/test`                 | `register(t, name = "comments")`: mounts the component in a `convex-test` instance (needs `convex-test` and Vite's `import.meta.glob` in the consuming app) |
+| `@vllnt/convex-comments/test`                 | `register(t, name = "comments")`: mounts the component in the `convex-test` instance `convexTest(schema, modules)` returns for any host schema (needs `convex-test` and Vite's `import.meta.glob` in the consuming app) |
 | `@vllnt/convex-comments/_generated/component` | type `ComponentApi`: the typed function references behind `components.comments`                                                                             |
 
 The TypeScript source ships in `src/`; the compiled client and `.d.ts` files

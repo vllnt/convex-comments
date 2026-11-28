@@ -4,7 +4,10 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.1] - Unreleased
+## [0.2.0] - Unreleased
+
+A minor release, not a patch: it adds the `resourceCounts` component table and `post` now
+rejects empty refs that 0.1.0 accepted, so `^0.1.0` ranges do not pick it up silently.
 
 ### Added
 
@@ -23,15 +26,34 @@ All notable changes to this project are documented here. The format is based on
   repository-variable gate on canary publishing is removed. Docs-only changes to the shipped
   files also trigger it.
 - `homepage` now points to `https://oss.vllnt.com/packages/convex-comments`.
+- **Breaking:** `post` rejects an empty `resourceRef` or `authorRef` with
+  `ConvexError({ code: "INVALID_REF" })`; 0.1.0 accepted them. Callers that passed `""` must
+  pass a non-empty ref. Comments stored by 0.1.0 with an empty `authorRef` still exist, and since
+  only `post` checks refs, `edit`, `remove` and `resolve` accept a caller passing `""` as their
+  author: hosts should reject an empty `authorRef` before calling those.
 - `count` reads a maintained `resourceCounts` row (one document) instead of collecting every comment
-  on the resource, and re-runs only when a comment is posted or removed. The counter is created
-  by the first `post` on a resource with no comments; resources that already had comments keep the
-  previous scan, so no write ever scans a whole resource.
+  on the resource. The counter is created by the first `post` on a resource with no comments, and
+  only `post` and `remove` change it, so for a resource with a counter `count` re-runs only when a
+  comment is posted or removed. Resources whose comments predate the counter have no row and keep
+  the previous scan (and its reactivity: `count` re-runs on any change to the resource's comments),
+  so no write ever scans a whole resource.
+- Upgrading again after a downgrade needs a cleanup: if you run 0.2.0, go back to 0.1.x and later
+  upgrade again, the `resourceCounts` rows missed every post and remove made under 0.1.x, so `count`
+  returns stale numbers. Before upgrading again, delete every row in the component's
+  `resourceCounts` table: `count` then falls back to the scan for each resource that has comments,
+  which stays correct, and a resource with no comments gets a fresh counter on its next `post`.
 
 ### Fixed
 
-- `post` rejects an empty `resourceRef` or `authorRef` with
-  `ConvexError({ code: "INVALID_REF" })`.
+- `register(t)` from `@vllnt/convex-comments/test` accepts the `convexTest(schema, modules)`
+  instance of any host schema. It was typed against the component's own schema, so a host
+  app's test failed to type-check with TS2345. Runtime behavior is unchanged. The repo's
+  tests (`example/**`, `src/**/*.test.ts`) are now type-checked by `pnpm typecheck:tests`,
+  which `pnpm test` and `pnpm test:coverage` run first.
+- The publish workflow runs `pnpm test:package` in its quality gate, so a canary or stable
+  release no longer publishes a tarball that misses a required doc or `exports` target.
+  `pnpm check:release` (run by `pnpm lint`) fails if that gate or the existing release
+  guards are removed.
 - `@vllnt/convex-comments/test` now type-checks under `moduleResolution: nodenext`
   (explicit `.js` relative imports, Vite client types referenced).
 - The `bodyValidator` JSDoc in `src/client` no longer says a Convex `v.*` validator has a
