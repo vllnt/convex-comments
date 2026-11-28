@@ -1,5 +1,7 @@
 # @vllnt/convex-comments
 
+![Comments — @vllnt/convex-comments](https://raw.githubusercontent.com/vllnt/convex-comments/main/.github/assets/thumbnail.png)
+
 TypeScript Convex component for threaded comments and annotations on any
 resource: replies, author-only edit and resolve, soft-delete, paging.
 
