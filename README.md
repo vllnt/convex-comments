@@ -27,6 +27,9 @@ before writing code against this package.
 pnpm add @vllnt/convex-comments convex
 ```
 
+These docs describe 0.2.0. Until `npm view @vllnt/convex-comments version`
+shows 0.2.0, install `@vllnt/convex-comments@canary`.
+
 ## Quick start
 
 ```ts
@@ -42,7 +45,10 @@ export default app;
 ```ts
 // convex/comments.ts
 import { Comments } from "@vllnt/convex-comments";
-import { paginationOptsValidator } from "convex/server";
+import {
+  paginationOptsValidator,
+  paginationResultValidator,
+} from "convex/server";
 import { ConvexError, v } from "convex/values";
 
 import { components } from "./_generated/api";
@@ -53,6 +59,24 @@ const comments = new Comments<string>(components.comments, {
     if (typeof value !== "string") throw new Error("expected a string body");
     return value;
   },
+});
+
+// The package exports no Convex validator for its rows; this one matches
+// CommentView<string>.
+export const commentView = v.object({
+  commentId: v.string(),
+  resourceRef: v.string(),
+  authorRef: v.string(),
+  parentId: v.optional(v.string()),
+  body: v.optional(v.string()),
+  status: v.union(
+    v.literal("open"),
+    v.literal("resolved"),
+    v.literal("deleted"),
+  ),
+  editedAt: v.optional(v.number()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
 });
 
 export const post = mutation({
@@ -78,6 +102,7 @@ export const post = mutation({
 
 export const thread = query({
   args: { resourceRef: v.string(), paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(commentView),
   handler: (ctx, { resourceRef, paginationOpts }) =>
     comments.list(ctx, resourceRef, paginationOpts),
 });
@@ -117,16 +142,21 @@ first.
 
 ## Common tasks
 
-Page one comment's direct replies and show the resource's comment count:
+Page one comment's direct replies and show the resource's comment count
+(`commentView` is the validator from the Quick start):
 
 ```ts
 // convex/replies.ts
 import { Comments } from "@vllnt/convex-comments";
-import { paginationOptsValidator } from "convex/server";
+import {
+  paginationOptsValidator,
+  paginationResultValidator,
+} from "convex/server";
 import { v } from "convex/values";
 
 import { components } from "./_generated/api";
 import { query } from "./_generated/server";
+import { commentView } from "./comments";
 
 const comments = new Comments<string>(components.comments);
 
@@ -136,6 +166,7 @@ export const replies = query({
     parentId: v.string(),
     paginationOpts: paginationOptsValidator,
   },
+  returns: paginationResultValidator(commentView),
   handler: (ctx, { resourceRef, parentId, paginationOpts }) =>
     comments.list(ctx, resourceRef, paginationOpts, { parentId }),
 });
@@ -345,8 +376,9 @@ own error unchanged.
 - The body is opaque. Without `bodyValidator`, `TBody` is an unchecked type. With
   it, the parser runs on write (`post`, `edit`) and on read (`get`, `list`); a
   stored body that fails it makes the whole read throw.
-- Calls that change nothing and raise no error: `remove` on a deleted comment,
-  `resolve` to the state it already has (`updatedAt` stays the same).
+- Calls that change nothing and raise no error: `remove` on a deleted comment
+  by its author (anyone else gets `NOT_AUTHOR` first), `resolve` to the state
+  it already has (`updatedAt` stays the same).
 - `edit` keeps the status; editing a resolved comment leaves it resolved.
 - There is no method to list comments by author.
 - `get`, `list` and `count` check nothing: anyone who can call your query
@@ -420,8 +452,10 @@ test("a reply threads under its parent", async () => {
 ```
 
 `register(t, name)` takes the mount name when you used
-`app.use(comments, { name })`. The `import.meta.glob` must include your
-`convex/_generated` folder: `convex-test` finds your functions from it.
+`app.use(comments, { name })`. The test imports your own `convex/schema.ts`
+(`./schema`); a host with no tables can export `defineSchema({})`. The
+`import.meta.glob` must include your `convex/_generated` folder: `convex-test`
+finds your functions from it.
 
 This repository's own tests run on the `convex-test` runtime
 (`pnpm test:coverage`, 100% coverage enforced). `pnpm check:docs` type-checks
@@ -444,7 +478,7 @@ Report vulnerabilities as described in
 ## Related packages
 
 None. This package has no dependency, shared test or example with another
-package.
+@vllnt package.
 
 ## Contributing
 

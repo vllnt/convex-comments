@@ -7,23 +7,24 @@ dist-tag). Peer dependency `convex@^1.45.0` (development and tests run on
 1.51.0; the floor is not tested in CI). Mount it with `app.use(comments)` from
 `@vllnt/convex-comments/convex.config` and call it through
 `new Comments<TBody>(components.comments, { bodyValidator? })` from host
-mutations and queries; every method takes the host `ctx` first. Methods: `post`,
-`edit`, `remove`, `resolve`, `get`, `list`, `count`, `prune`. A comment is
-attached to an opaque `resourceRef`, written by an opaque `authorRef`, and may
-reply to a `parentId` on the same resource. Status: `resolve` moves between
-`open` and `resolved`; `remove` moves either to `deleted` (soft-delete, body
-cleared, terminal). Only the original
-`authorRef` may `edit`, `remove` or `resolve`. `list` pages the top level oldest
-first, or one comment's direct replies with `{ parentId }`, excluding deleted
-comments unless `includeDeleted`. `count` returns open plus resolved comments,
-replies included. Invalid input throws `ConvexError` with `data.code`
-`INVALID_REF`, `PARENT_NOT_FOUND`, `PARENT_MISMATCH`, `PARENT_DELETED`,
-`NOT_FOUND`, `NOT_AUTHOR`, `DELETED`, `INVALID_BATCH` or `INVALID_BEFORE`.
-`INVALID_REF` is checked only by `post`. A built-in daily cron prunes
-soft-deleted leaf comments older than 30 days; `prune` batch is 1–500 (default
-200). The body is opaque; `bodyValidator` is a `(unknown) => TBody` parser run
-on write and read, not a Convex `v.*` validator. The host owns auth and the
-meaning of resources and authors; there is no React entry.
+mutations and queries; every method takes the host `ctx` first. Methods: `post` (returns
+`{ commentId }`), `edit`, `remove`, `resolve`, `get`, `list`, `count`, `prune`.
+A comment is attached to an opaque `resourceRef`, written by an opaque
+`authorRef`, and may reply to a `parentId` on the same resource. Status:
+`resolve` moves between `open` and `resolved`; `remove` moves either to
+`deleted` (soft-delete, body cleared, terminal). Only the original `authorRef`
+may `edit`, `remove` or `resolve`. `list` pages the top level oldest first, or
+one comment's direct replies with `{ parentId }`, excluding deleted comments
+unless `includeDeleted`. `count` returns open plus resolved comments, replies
+included. The component stores two tables: `comments` and `resourceCounts` (one
+visible-comment counter per resource). Invalid input throws `ConvexError` with
+`data.code` `INVALID_REF`, `PARENT_NOT_FOUND`, `PARENT_MISMATCH`,
+`PARENT_DELETED`, `NOT_FOUND`, `NOT_AUTHOR`, `DELETED`, `INVALID_BATCH` or
+`INVALID_BEFORE`. `INVALID_REF` is checked only by `post`. A built-in daily cron
+prunes soft-deleted leaf comments older than 30 days; `prune` batch is 1–500
+(default 200). The body is opaque; `bodyValidator` is a `(unknown) => TBody`
+parser run on write and read, not a Convex `v.*` validator. The host owns auth
+and the meaning of resources and authors; there is no React entry.
 
 ## When to use
 
@@ -39,9 +40,10 @@ meaning of resources and authors; there is no React entry.
 
 ## For coding agents
 
-The docs are bundled in the package at `node_modules/@vllnt/convex-comments/docs/`
-and match the installed version. Read them, and the shipped `src/`, before
-writing code. The links below to `./` paths are files inside the installed package.
+Docs for the installed version are in `node_modules/@vllnt/convex-comments/`:
+`docs/API.md`, `llms.txt`, `CHANGELOG.md` and the TypeScript `src/`. Read them
+before writing code against this package. The links below to `./` paths are
+files inside the installed package.
 
 ## Docs
 

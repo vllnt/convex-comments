@@ -233,8 +233,9 @@ export const resolve = mutation({
 /**
  * Delete a bounded page of soft-deleted leaf comments older than the retention
  * cutoff. A tombstone with replies is preserved so those replies never acquire a
- * dangling `parentId`. The cursor walks past blocked parents; after a sweep that
- * removed any leaves, one fresh sweep catches ancestors that became leaves.
+ * dangling `parentId`. The cursor walks past blocked parents. After every full
+ * sweep that removed any leaves, a fresh sweep starts (catching ancestors that
+ * became leaves); the chain stops after a sweep that removes nothing.
  */
 export const prune = mutation({
   args: {

@@ -43,19 +43,9 @@ new Comments<TBody = unknown>(component: CommentsComponent, options?: CommentsOp
 `component` is the mounted component, `components.comments` (or the name passed
 to `app.use`). `TBody` is the host's opaque comment body type. Mutations run
 through `ctx.runMutation` and queries through `ctx.runQuery`, so call them from
-host mutations and queries (queries also work from a mutation `ctx`).
-
-```ts
-import { Comments } from "@vllnt/convex-comments";
-import { components } from "./_generated/api";
-
-const comments = new Comments<string>(components.comments, {
-  bodyValidator: (value) => {
-    if (typeof value !== "string") throw new Error("Expected a string body");
-    return value;
-  },
-});
-```
+host mutations and queries (queries also work from a mutation `ctx`). The
+README [Quick start](../README.md#quick-start) constructs one with a
+`bodyValidator`; that example is type-checked by `pnpm check:docs`.
 
 ### `post`
 
@@ -94,8 +84,9 @@ remove(ctx, commentId: string, authorRef: string): Promise<null>
 
 Soft-delete a comment: the row is kept (its replies are preserved) but moved to
 `deleted` status with its body cleared, so the prune cron can sweep it after the
-retention window. Idempotent — re-deleting a `deleted` comment is a no-op. Only
-the original author may delete (`NOT_AUTHOR`); a missing id throws `NOT_FOUND`.
+retention window. Idempotent — its author re-deleting a `deleted` comment is a
+no-op. Only the original author may delete (`NOT_AUTHOR`, checked first); a
+missing id throws `NOT_FOUND`.
 
 ### `resolve`
 
@@ -160,10 +151,11 @@ Page through **soft-deleted** comments whose `updatedAt < before`, oldest first
 (via the `by_status_updated` index), and delete only leaf tombstones. A
 tombstone with replies remains so no reply acquires a dangling `parentId`. Open
 and resolved comments are never pruned. Returns the number deleted by the first
-pass. The sweep self-reschedules through the component scheduler, then starts
-one fresh pass when deletions may have made ancestors into leaves. It is
-idempotent and a built-in daily cron drives it automatically; call `prune`
-directly only for an extra or custom-cadence sweep.
+pass. The sweep self-reschedules through the component scheduler until it has
+paged every candidate; after each full sweep that deleted anything it starts a
+fresh sweep, and it stops after a sweep that deletes nothing. It is idempotent
+and a built-in daily cron drives it automatically; call `prune` directly only
+for an extra or custom-cadence sweep.
 
 ## Types
 
@@ -213,7 +205,7 @@ or `app.use(comments, { name })` for another independent instance reached as
 ### `register`
 
 ```ts
-register(t: TestConvex<SchemaDefinition<GenericSchema, boolean>>, name = "comments"): void
+register<TSchema extends GenericSchema>(t: TestConvex<SchemaDefinition<TSchema, boolean>>, name = "comments"): void
 ```
 
 Mounts the component in the `convex-test` instance `convexTest(schema, modules)`
