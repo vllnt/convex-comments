@@ -55,6 +55,10 @@ rejects empty refs that 0.1.0 accepted, so `^0.1.0` ranges do not pick it up sil
   returns stale numbers. Before upgrading again, delete every row in the component's
   `resourceCounts` table: `count` then falls back to the scan for each resource that has comments,
   which stays correct, and a resource with no comments gets a fresh counter on its next `post`.
+- `pnpm test:package` (run in CI and before every publish) now also installs the packed tarball in
+  a clean project, imports every runtime entry point (`.`, `./convex.config`) under Node, and
+  type-checks a strict `NodeNext` consumer that imports every entry point, including the
+  types-only `./_generated/component` and `./test`, with `skipLibCheck` off.
 
 ### Fixed
 

@@ -1,11 +1,18 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import process from "node:process";
+
+import ts from "typescript";
+
+import { locked, run, typecheck, withConsumer } from "./package-consumer.mjs";
 
 // Fails when the npm tarball is missing a required doc or an `exports` target,
 // ships a file outside the allowlist, or README.md / llms.txt link to a file that
 // is not inside the tarball or link a shipped file through GitHub `main` (not
-// version-matched). Run `pnpm build` first so `dist/` is part of the pack.
+// version-matched). Then installs the real tarball in a clean project, imports
+// every runtime entry point under Node and type-checks a strict NodeNext consumer
+// that imports every entry point. Run `pnpm build` first so `dist/` is packed.
 
 const DOCS = [
   "package.json",
@@ -70,6 +77,59 @@ for (const file of LINKED) {
         );
     }
   }
+}
+
+// Install the tarball as a host would and use every entry point.
+const entries = Object.keys(metadata.exports).filter(
+  (key) => key !== "./package.json",
+);
+const specifier = (/** @type {string} */ key) =>
+  `${metadata.name}${key.slice(1)}`;
+try {
+  withConsumer(
+    "comments-package-",
+    ["convex", "convex-test", "vite"].map(locked),
+    (consumer) => {
+      const runtime = entries.filter(
+        (key) => typeof metadata.exports[key].default === "string",
+      );
+      run(
+        "node",
+        [
+          "--input-type=module",
+          "--eval",
+          runtime.map((key) => `await import("${specifier(key)}");`).join("\n"),
+        ],
+        consumer,
+      );
+      writeFileSync(
+        join(consumer, "consumer.ts"),
+        [
+          ...entries.map(
+            (key, index) =>
+              `import type * as e${String(index)} from "${specifier(key)}";`,
+          ),
+          `export type Entries = [${entries.map((_, index) => `typeof e${String(index)}`).join(", ")}];`,
+        ].join("\n"),
+      );
+      typecheck(consumer, ["consumer.ts"], {
+        module: ts.ModuleKind.NodeNext,
+        moduleResolution: ts.ModuleResolutionKind.NodeNext,
+        noEmit: true,
+        skipLibCheck: false,
+        strict: true,
+        target: ts.ScriptTarget.ES2022,
+        types: [],
+      });
+      console.log(
+        `OK    installed package: ${String(runtime.length)} runtime entries import under Node; ${String(entries.length)} entries type-check (strict, NodeNext)`,
+      );
+    },
+  );
+} catch (error) {
+  problems.push(
+    `installed package check failed: ${error instanceof Error ? error.message : String(error)}`,
+  );
 }
 
 if (problems.length > 0) {
