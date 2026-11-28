@@ -26,15 +26,23 @@ rejects empty refs that 0.1.0 accepted, so `^0.1.0` ranges do not pick it up sil
   repository-variable gate on canary publishing is removed. Docs-only changes to the shipped
   files also trigger it.
 - `homepage` now points to `https://oss.vllnt.com/packages/convex-comments`.
+- **Breaking:** `post` rejects an empty `resourceRef` or `authorRef` with
+  `ConvexError({ code: "INVALID_REF" })`; 0.1.0 accepted them. Callers that passed `""` must
+  pass a non-empty ref.
 - `count` reads a maintained `resourceCounts` row (one document) instead of collecting every comment
-  on the resource, and re-runs only when a comment is posted or removed. The counter is created
-  by the first `post` on a resource with no comments; resources that already had comments keep the
-  previous scan, so no write ever scans a whole resource.
+  on the resource. The counter is created by the first `post` on a resource with no comments, and
+  only `post` and `remove` change it, so for a resource with a counter `count` re-runs only when a
+  comment is posted or removed. Resources whose comments predate the counter have no row and keep
+  the previous scan (and its reactivity: `count` re-runs on any change to the resource's comments),
+  so no write ever scans a whole resource.
+- Downgrading is not safe to repeat: if you run 0.2.0, go back to 0.1.x and later upgrade again,
+  the `resourceCounts` rows missed every post and remove made under 0.1.x, so `count` returns stale
+  numbers. Before upgrading again, delete every row in the component's `resourceCounts` table:
+  `count` then falls back to the scan for each resource that has comments, which stays correct, and
+  a resource with no comments gets a fresh counter on its next `post`.
 
 ### Fixed
 
-- `post` rejects an empty `resourceRef` or `authorRef` with
-  `ConvexError({ code: "INVALID_REF" })`.
 - `register(t)` from `@vllnt/convex-comments/test` accepts the `convexTest(schema, modules)`
   instance of any host schema. It was typed against the component's own schema, so a host
   app's test failed to type-check with TS2345. Runtime behavior is unchanged. The repo's
