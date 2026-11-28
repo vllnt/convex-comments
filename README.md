@@ -459,7 +459,7 @@ finds your functions from it.
 
 This repository's own tests run on the `convex-test` runtime
 (`pnpm test:coverage`, 100% coverage enforced). `pnpm check:docs` type-checks
-every README example against the built package and runs the test above.
+every README `ts` example against the built package and runs the test above.
 
 ## Security
 
@@ -477,8 +477,8 @@ Report vulnerabilities as described in
 
 ## Related packages
 
-None. This package has no dependency, shared test or example with another
-@vllnt package.
+None. This package has no runtime dependency, shared test or example with
+another @vllnt package.
 
 ## Contributing
 

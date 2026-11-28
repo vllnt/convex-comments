@@ -149,7 +149,8 @@ export const edit = mutation({
  * Soft-delete a comment. Only the original author may delete it (`NOT_AUTHOR`).
  * The row is kept (its replies are preserved) but moved to `deleted` status with
  * its `body` cleared, so the prune cron can sweep it after the retention window.
- * Idempotent — re-deleting an already-deleted comment is a no-op.
+ * Idempotent for its author — re-deleting an already-deleted comment is a no-op;
+ * a non-author gets `NOT_AUTHOR` first, because authorship is checked before status.
  *
  * @throws `ConvexError({ code: "NOT_FOUND" })` when no comment has `commentId`.
  * @throws `ConvexError({ code: "NOT_AUTHOR" })` when `authorRef` is not the author.
