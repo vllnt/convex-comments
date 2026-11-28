@@ -1,66 +1,38 @@
-<!-- Badges -->
-
-[![convex-component](https://img.shields.io/badge/convex-component-EE342F.svg)](https://www.convex.dev/components)
-[![npm](https://img.shields.io/npm/v/@vllnt/convex-comments.svg)](https://www.npmjs.com/package/@vllnt/convex-comments)
-[![CI](https://github.com/vllnt/convex-comments/actions/workflows/ci.yml/badge.svg)](https://github.com/vllnt/convex-comments/actions/workflows/ci.yml)
-[![license](https://img.shields.io/npm/l/@vllnt/convex-comments.svg)](./LICENSE)
-
 # @vllnt/convex-comments
 
-Threaded comments / annotations on any resource, as a Convex component.
+TypeScript Convex component for threaded comments and annotations on any
+resource: replies, author-only edit and resolve, soft-delete, paging.
 
-```ts
-const comments = new Comments(components.comments);
-await comments.post(ctx, resourceRef, authorRef, body, parentId); // parentId threads a reply
-await comments.list(ctx, resourceRef, paginationOpts); // reactive thread
-await comments.resolve(ctx, commentId, authorRef); // author-gated
-```
+## For coding agents
 
-A host attaches a comment to an opaque `resourceRef` (an article, a doc, a clip
-— anything); replies thread under a parent; the author edits, resolves, and
-soft-deletes their own comments; clients page a resource's thread or subscribe
-reactively.
+Docs for the installed version are in `node_modules/@vllnt/convex-comments/`:
+`docs/API.md`, `llms.txt`, `CHANGELOG.md` and the TypeScript `src/`. Read them
+before writing code against this package.
 
-## Features
+## When to use
 
-- **Post on any resource** — `post(resourceRef, authorRef, body, parentId?)`
-  inserts an `open` comment; `parentId` threads it as a reply.
-- **Author-gated edits** — `edit`, `remove` (soft-delete), and `resolve` require
-  the original `authorRef`, else `NOT_AUTHOR`.
-- **Threaded** — a reply links to a parent on the same resource (cross-resource
-  or deleted parent rejected); `list(..., { parentId })` pages direct replies.
-- **Soft-delete + retention** — `remove` keeps the row and replies but marks it
-  `deleted` and clears the body; a daily cron prunes deleted leaf rows past
-  retention, preserving parents with replies.
-- **Page or subscribe** — `list` pages oldest-first (deleted excluded by
-  default), `count` tallies visible ones. Reactive in a Convex query.
-- **Server-sourced time** — `createdAt`/`updatedAt`/`editedAt` are stamped from
-  the server clock; a caller can't supply a timestamp.
-- **Typed, opaque body** — `Comments<TBody>` types the stored `body`;
-  `bodyValidator` narrows plain text vs rich blocks at the boundary.
-- **Mount-safe** — correct under multiple named `app.use` mounts (e.g. a
-  `comments` mount + an `annotations` mount); each is an isolated sandbox.
+- Use it when people discuss a resource (a post, doc, ticket or clip) in text
+  threads with replies.
+- Use it when you need inline annotations or review notes that their author
+  resolves and reopens.
+- Use it when only the original author may edit, resolve or remove a comment.
+- Do not use it when people only like, vote or react without text: use
+  `@vllnt/convex-reactions`.
+- Do not use it when the thread is a conversation with an AI agent: use
+  `@convex-dev/agent`.
 
-## Installation
+## Install
 
 ```bash
-pnpm add @vllnt/convex-comments convex@^1.45.0
+pnpm add @vllnt/convex-comments convex
 ```
-
-Peer dependency: `convex@^1.45.0`. The command installs the latest stable
-release; use `@vllnt/convex-comments@canary` for the newest pre-release build
-from `main`, and pin a resolved canary version for reproducible installs.
 
 ## Quick start
 
-After mounting, run `pnpm exec convex dev` to generate `components.comments`.
-The example exports internal functions for trusted server callers; public
-wrappers must resolve the caller and authorize access to the resource.
-
 ```ts
 // convex/convex.config.ts
-import { defineApp } from "convex/server";
 import comments from "@vllnt/convex-comments/convex.config";
+import { defineApp } from "convex/server";
 
 const app = defineApp();
 app.use(comments);
@@ -68,152 +40,433 @@ export default app;
 ```
 
 ```ts
-// convex/comments.ts — trusted server-only example.
-import { components } from "./_generated/api";
-import { internalMutation, internalQuery } from "./_generated/server";
-import { paginationOptsValidator } from "convex/server";
-import { v } from "convex/values";
+// convex/comments.ts
 import { Comments } from "@vllnt/convex-comments";
+import { paginationOptsValidator } from "convex/server";
+import { ConvexError, v } from "convex/values";
+
+import { components } from "./_generated/api";
+import { mutation, query } from "./_generated/server";
 
 const comments = new Comments<string>(components.comments, {
   bodyValidator: (value) => {
-    if (typeof value !== "string") throw new Error("Expected a string body");
+    if (typeof value !== "string") throw new Error("expected a string body");
     return value;
   },
 });
 
-export const postComment = internalMutation({
+export const post = mutation({
   args: {
     resourceRef: v.string(),
-    authorRef: v.string(),
     body: v.string(),
     parentId: v.optional(v.string()),
   },
-  handler: (ctx, { resourceRef, authorRef, body, parentId }) =>
-    comments.post(ctx, resourceRef, authorRef, body, parentId),
+  returns: v.string(),
+  handler: async (ctx, { resourceRef, body, parentId }) => {
+    const user = await ctx.auth.getUserIdentity();
+    if (user === null) throw new ConvexError("not signed in");
+    const { commentId } = await comments.post(
+      ctx,
+      resourceRef,
+      user.tokenIdentifier,
+      body,
+      parentId,
+    );
+    return commentId;
+  },
 });
 
-export const listComments = internalQuery({
+export const thread = query({
   args: { resourceRef: v.string(), paginationOpts: paginationOptsValidator },
   handler: (ctx, { resourceRef, paginationOpts }) =>
     comments.list(ctx, resourceRef, paginationOpts),
 });
 ```
 
-## API Reference
+Run `npx convex dev` once to generate `components.comments`. The component
+never reads auth: the host derives `authorRef` (here the user's
+`tokenIdentifier`) and decides who may post on which resource. The command in
+Install gets the `latest` release; `@vllnt/convex-comments@canary` is the newest
+build from `main`.
 
-| Method                                               | Kind     | Result                                                                     |
-| ---------------------------------------------------- | -------- | -------------------------------------------------------------------------- |
-| `post(ctx, resourceRef, authorRef, body, parentId?)` | mutation | `{ commentId }`                                                            |
-| `edit(ctx, commentId, authorRef, body)`              | mutation | `null` (author-gated)                                                      |
-| `remove(ctx, commentId, authorRef)`                  | mutation | `null` (soft-delete, author-gated)                                         |
-| `resolve(ctx, commentId, authorRef, resolved?)`      | mutation | `null` (toggle, author-gated; `resolved` defaults `true`)                  |
-| `get(ctx, commentId)`                                | query    | `CommentView \| null`                                                      |
-| `list(ctx, resourceRef, paginationOpts, opts?)`      | query    | `PaginationResult<CommentView>` (`opts`: `{ parentId?; includeDeleted? }`) |
-| `count(ctx, resourceRef)`                            | query    | `number` (visible comments)                                                |
-| `prune(ctx, opts?)`                                  | mutation | `number` (deleted comments removed in the first bounded pass)              |
+## API
 
-Full reference: [docs/API.md](docs/API.md).
+Full reference: [docs/API.md](docs/API.md). Every method takes the host `ctx`
+first.
 
-## Options and limitations
+| Export                                                                           | Import from                                   | What it does                                                    |
+| -------------------------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------- |
+| [`Comments`](docs/API.md#comments)                                               | `@vllnt/convex-comments`                      | Host client: `new Comments<TBody>(components.comments, opts?)`  |
+| [`post(ctx, resourceRef, authorRef, body, parentId?)`](docs/API.md#post)         | `Comments` method, mutation                   | Add an `open` comment or a reply; returns `{ commentId }`       |
+| [`edit(ctx, commentId, authorRef, body)`](docs/API.md#edit)                      | `Comments` method, mutation                   | Replace the body (author only); returns `null`                  |
+| [`remove(ctx, commentId, authorRef)`](docs/API.md#remove)                        | `Comments` method, mutation                   | Soft-delete and clear the body (author only); returns `null`    |
+| [`resolve(ctx, commentId, authorRef, resolved?)`](docs/API.md#resolve)           | `Comments` method, mutation                   | Set `resolved` (default) or reopen (author only); returns `null` |
+| [`get(ctx, commentId)`](docs/API.md#get)                                         | `Comments` method, query                      | One `CommentView` or `null`                                     |
+| [`list(ctx, resourceRef, paginationOpts, opts?)`](docs/API.md#list)              | `Comments` method, query                      | One page of top-level comments or of one comment's replies      |
+| [`count(ctx, resourceRef)`](docs/API.md#count)                                   | `Comments` method, query                      | Number of open and resolved comments on the resource            |
+| [`prune(ctx, opts?)`](docs/API.md#prune)                                         | `Comments` method, mutation                   | Delete old soft-deleted leaf comments; returns the first pass count |
+| [`CommentsComponent`](docs/API.md#commentscomponent)                             | `@vllnt/convex-comments` (type)               | Type of `components.comments`                                   |
+| [`CommentsOptions`](docs/API.md#commentsoptions)                                 | `@vllnt/convex-comments` (type)               | `{ bodyValidator? }`                                            |
+| [`CommentView`](docs/API.md#commentview)                                         | `@vllnt/convex-comments` (type)               | Result row of `get` and `list`                                  |
+| [`CommentStatus`](docs/API.md#commentstatus)                                     | `@vllnt/convex-comments` (type)               | `"open" \| "resolved" \| "deleted"`                             |
+| [`ListOptions`](docs/API.md#listoptions)                                         | `@vllnt/convex-comments` (type)               | `{ parentId?, includeDeleted? }`                                |
+| [`Parser`](docs/API.md#parser)                                                   | `@vllnt/convex-comments` (type)               | `(value: unknown) => T`, the `bodyValidator` shape              |
+| [`default` (component config)](docs/API.md#convexconfig)                         | `@vllnt/convex-comments/convex.config`        | Pass to `app.use(...)`                                          |
+| [`register`](docs/API.md#register)                                               | `@vllnt/convex-comments/test`                 | Mount the component in `convex-test`                            |
+| [`ComponentApi`](docs/API.md#componentapi)                                       | `@vllnt/convex-comments/_generated/component` | Generated type of the mounted component                         |
 
-- The constructor accepts only `bodyValidator`, a parser `(unknown) => TBody`
-  that returns or throws; Convex `v.*` validators do not have a `.parse` method.
-- `prune({ before?, batch? })` defaults to 30-day retention and 200 rows per
-  pass; batch must be an integer from 1–500 and `before` must be finite. These
-  are per-call options, not mount settings; the built-in daily cron keeps its
-  default retention.
-- Deleted parents remain while any replies exist. `count` reads a maintained
-  per-resource counter (one document); resources that already had comments before
-  upgrading keep the previous scan.
-- Multiple static instances use `app.use(comments, { name: "annotations" })` and
-  `new Comments(components.annotations)`.
+## Common tasks
 
-## Integrations
+Page one comment's direct replies and show the resource's comment count:
 
-Backend-only — no `./react` entry. A comment thread is an ordinary reactive
-`useQuery` / `usePaginatedQuery` over the host's own re-exported `list` /
-`count` refs.
+```ts
+// convex/replies.ts
+import { Comments } from "@vllnt/convex-comments";
+import { paginationOptsValidator } from "convex/server";
+import { v } from "convex/values";
 
-## Security
+import { components } from "./_generated/api";
+import { query } from "./_generated/server";
 
-- Auth-agnostic for access; the component enforces only **authorship**
-  (`edit`/`remove`/`resolve` require the original `authorRef`). The host owns
-  who may post or moderate.
-- Tables sandboxed — reached only through the exported functions; never touches
-  host or sibling tables.
-- Server-sourced time; `resourceRef` / `authorRef` / `body` stay opaque to the
-  component.
+const comments = new Comments<string>(components.comments);
 
-See [docs/API.md](docs/API.md).
+export const replies = query({
+  args: {
+    resourceRef: v.string(),
+    parentId: v.string(),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: (ctx, { resourceRef, parentId, paginationOpts }) =>
+    comments.list(ctx, resourceRef, paginationOpts, { parentId }),
+});
+
+export const total = query({
+  args: { resourceRef: v.string() },
+  returns: v.number(),
+  handler: (ctx, { resourceRef }) => comments.count(ctx, resourceRef),
+});
+```
+
+Let the signed-in author edit, resolve or remove their comment, and turn a
+`NOT_AUTHOR` error into `false`:
+
+```ts
+// convex/moderation.ts
+import { Comments } from "@vllnt/convex-comments";
+import { ConvexError, v } from "convex/values";
+
+import { components } from "./_generated/api";
+import { mutation, type MutationCtx } from "./_generated/server";
+
+const comments = new Comments<string>(components.comments);
+
+async function authorOf(ctx: MutationCtx): Promise<string> {
+  const user = await ctx.auth.getUserIdentity();
+  if (user === null) throw new ConvexError("not signed in");
+  return user.tokenIdentifier;
+}
+
+const isNotAuthor = (error: unknown): boolean =>
+  error instanceof ConvexError &&
+  typeof error.data === "object" &&
+  error.data !== null &&
+  "code" in error.data &&
+  error.data.code === "NOT_AUTHOR";
+
+export const editComment = mutation({
+  args: { commentId: v.string(), body: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { commentId, body }) => {
+    try {
+      await comments.edit(ctx, commentId, await authorOf(ctx), body);
+      return true;
+    } catch (error) {
+      if (isNotAuthor(error)) return false;
+      throw error;
+    }
+  },
+});
+
+export const resolveComment = mutation({
+  args: { commentId: v.string(), resolved: v.boolean() },
+  returns: v.null(),
+  handler: async (ctx, { commentId, resolved }) =>
+    comments.resolve(ctx, commentId, await authorOf(ctx), resolved),
+});
+
+export const removeComment = mutation({
+  args: { commentId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { commentId }) =>
+    comments.remove(ctx, commentId, await authorOf(ctx)),
+});
+```
+
+Store a structured body and validate it on write and read with a plain
+function (any schema library's parse function works the same way):
+
+```ts
+// convex/notes.ts
+import { Comments } from "@vllnt/convex-comments";
+import { v } from "convex/values";
+
+import { components } from "./_generated/api";
+import { internalMutation } from "./_generated/server";
+
+interface NoteBody {
+  text: string;
+  mentions: string[];
+}
+
+const parseNoteBody = (value: unknown): NoteBody => {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "text" in value &&
+    typeof value.text === "string" &&
+    "mentions" in value &&
+    Array.isArray(value.mentions) &&
+    value.mentions.every((item) => typeof item === "string")
+  ) {
+    return { text: value.text, mentions: value.mentions };
+  }
+  throw new Error("invalid note body");
+};
+
+const notes = new Comments<NoteBody>(components.comments, {
+  bodyValidator: parseNoteBody,
+});
+
+export const addNote = internalMutation({
+  args: { resourceRef: v.string(), authorRef: v.string(), text: v.string() },
+  returns: v.string(),
+  handler: async (ctx, { resourceRef, authorRef, text }) => {
+    const { commentId } = await notes.post(ctx, resourceRef, authorRef, {
+      text,
+      mentions: [],
+    });
+    return commentId;
+  },
+});
+```
+
+Mount a second, fully separate instance for annotations. Named mounts share no
+rows, counters or cron:
+
+```ts
+// convex/convex.config.ts
+import comments from "@vllnt/convex-comments/convex.config";
+import { defineApp } from "convex/server";
+
+const app = defineApp();
+app.use(comments);
+app.use(comments, { name: "annotations" });
+export default app;
+```
+
+```ts
+// convex/clients.ts
+import { Comments } from "@vllnt/convex-comments";
+
+import { components } from "./_generated/api";
+
+export const discussion = new Comments<string>(components.comments);
+export const annotations = new Comments<string>(components.annotations);
+```
+
+Prune soft-deleted comments sooner than the built-in 30 days, from your own
+scheduler (the built-in daily cron keeps running):
+
+```ts
+// convex/retention.ts
+import { Comments } from "@vllnt/convex-comments";
+import { v } from "convex/values";
+
+import { components } from "./_generated/api";
+import { internalMutation } from "./_generated/server";
+
+const comments = new Comments(components.comments);
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+export const pruneWeek = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: (ctx) => comments.prune(ctx, { before: Date.now() - SEVEN_DAYS_MS }),
+});
+```
+
+## Errors and fixes
+
+The component throws a `ConvexError` whose `data` is `{ code, message }`. Catch
+it in the host with `error instanceof ConvexError` and read `error.data.code`.
+
+| Code               | Thrown by                   | Cause                                                       | Fix                                                                     |
+| ------------------ | --------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `INVALID_REF`      | `post`                      | `resourceRef` or `authorRef` is the empty string            | Pass non-empty refs; resolve the author before calling `post`           |
+| `PARENT_NOT_FOUND` | `post`                      | `parentId` names no comment (never existed or was pruned)   | Reply to an existing comment, or post at the top level                  |
+| `PARENT_MISMATCH`  | `post`                      | The parent belongs to a different `resourceRef`             | Pass the parent's own `resourceRef`                                     |
+| `PARENT_DELETED`   | `post`                      | The parent is soft-deleted                                  | Post at the top level, or reply to a comment that is not deleted        |
+| `NOT_FOUND`        | `edit`, `remove`, `resolve` | No comment has this `commentId` (never existed or was pruned) | Check the id; `get` returns `null` for it                             |
+| `NOT_AUTHOR`       | `edit`, `remove`, `resolve` | `authorRef` is not the comment's author                     | Pass the original author's ref; moderation is the host's own code       |
+| `DELETED`          | `edit`, `resolve`           | The comment is soft-deleted                                 | Nothing to change; a deleted comment cannot be edited or resolved       |
+| `INVALID_BATCH`    | `prune`                     | `batch` is not an integer from 1 to 500                     | Pass an integer from 1 to 500, or omit it (default 200)                 |
+| `INVALID_BEFORE`   | `prune`                     | `before` is `NaN` or infinite                               | Pass a finite millisecond timestamp, or omit it (default now − 30 days) |
+
+Not coded: a `commentId` or `parentId` that is not an id of the component's
+`comments` table, and arguments of the wrong type, fail Convex argument
+validation before the component runs. A `bodyValidator` that throws surfaces its
+own error unchanged.
+
+## Limits and gotchas
+
+- `prune` batch: integer 1–500, default 200. `before` defaults to the server
+  clock minus 30 days. Only soft-deleted comments are pruned; open and resolved
+  ones are kept forever.
+- The built-in daily cron prunes with the 30-day default and cannot be turned
+  off or reconfigured. A custom `prune` with a longer window does not keep
+  comments longer than 30 days.
+- A soft-deleted comment that still has replies is never pruned, so its replies
+  never lose their parent. It is pruned once it has no replies left.
+- `INVALID_REF` is checked only by `post`. `edit`, `remove` and `resolve`
+  compare `authorRef` as given, so a comment stored by 0.1.0 with an empty
+  `authorRef` accepts any caller that passes `""`. Reject an empty `authorRef`
+  in the host before calling them.
+- Refs have no length or format check beyond non-empty; the body is limited
+  only by Convex's document size limit.
+- `count` reads one `resourceCounts` row per resource, created by the first
+  `post` on a resource with no comments. A resource whose comments existed
+  before that row (from 0.1.0) keeps scanning all its comments on every `count`.
+  `count` includes replies.
+- After a downgrade to 0.1.x and a new upgrade, `resourceCounts` is stale: delete
+  every row of the component's `resourceCounts` table before upgrading again.
+- `list` returns top-level comments by default and only direct replies with
+  `{ parentId }`; there is no whole-tree read. A `parentId` from another resource
+  returns an empty page.
+- The body is opaque. Without `bodyValidator`, `TBody` is an unchecked type. With
+  it, the parser runs on write (`post`, `edit`) and on read (`get`, `list`); a
+  stored body that fails it makes the whole read throw.
+- Calls that change nothing and raise no error: `remove` on a deleted comment,
+  `resolve` to the state it already has (`updatedAt` stays the same).
+- `edit` keeps the status; editing a resolved comment leaves it resolved.
+- There is no method to list comments by author.
+- `get`, `list` and `count` check nothing: anyone who can call your query
+  wrapper reads the thread.
+
+## Compatibility
+
+- Peer dependency: `convex@^1.45.0`. Development, unit tests and the docs check
+  run on the locked convex version (1.51.0). The 1.45.0 floor is not tested in
+  CI.
+- Node.js: `engines` says `>=18`, but convex 1.45–1.48 need Node.js 20 or later
+  and convex 1.49 and later need Node.js 22 or later. CI runs Node.js 24.
+- ES modules only. The component functions run in the default Convex runtime
+  (no Node.js actions).
+- `@vllnt/convex-comments/test` ships as TypeScript source and needs Vite's
+  `import.meta.glob`; it type-checks with `moduleResolution` `Bundler` and
+  `NodeNext`.
+- React: not applicable. The package is backend-only and has no `./react` entry;
+  call your own wrappers with `useQuery` or `usePaginatedQuery`. For a web UI,
+  ui.vllnt.com has [Comment Pin](https://ui.vllnt.com/components/comment-pin)
+  and [Thread Bubble](https://ui.vllnt.com/components/thread-bubble) components
+  for anchored comment threads; this package does not depend on them.
 
 ## Testing
 
-```bash
-pnpm test           # single run
-pnpm test:coverage  # enforced 100% on covered files
-```
-
-Tests run against the real component runtime via `convex-test`
-(`@edge-runtime/vm`), not mocks.
-
-### Testing your app
-
-`@vllnt/convex-comments/test` exports `register(t, name = "comments")` to mount
-the component in a `convex-test` instance built from your own app schema. It needs `convex-test` and `vitest`
-(with Vite's `import.meta.glob`) in the consuming app:
+Mount the component in your own `convex-test` suite with `register`. You need
+`convex-test`, `vitest`, `vite` and `@edge-runtime/vm` as dev dependencies, and
+the Vitest settings `convex-test` recommends:
 
 ```ts
-/// <reference types="vite/client" />
-import { convexTest } from "convex-test";
-import { register } from "@vllnt/convex-comments/test";
-import schema from "./schema";
+// vitest.config.mts
+import { defineConfig } from "vitest/config";
 
-const t = convexTest(schema, import.meta.glob("./**/*.ts"));
-register(t);
+export default defineConfig({
+  test: {
+    environment: "edge-runtime",
+    server: { deps: { inline: ["convex-test"] } },
+  },
+});
 ```
 
-## For coding agents
+```ts
+// convex/comments.test.ts
+/// <reference types="vite/client" />
+import { register } from "@vllnt/convex-comments/test";
+import { convexTest } from "convex-test";
+import { expect, test } from "vitest";
 
-The docs are bundled in this package at
-`node_modules/@vllnt/convex-comments/docs/`. They match the installed version.
-Read them before writing code. The package also ships `llms.txt`, `CHANGELOG.md`
-and the TypeScript source in `src/`.
+import { api } from "./_generated/api";
+import schema from "./schema";
 
-## Documentation
+test("a reply threads under its parent", async () => {
+  const t = convexTest(schema, import.meta.glob("./**/*.ts"));
+  register(t);
+  const alice = t.withIdentity({ tokenIdentifier: "alice" });
+  const parentId = await alice.mutation(api.comments.post, {
+    resourceRef: "doc:1",
+    body: "first",
+  });
+  await alice.mutation(api.comments.post, {
+    resourceRef: "doc:1",
+    body: "reply",
+    parentId,
+  });
+  const top = await alice.query(api.comments.thread, {
+    resourceRef: "doc:1",
+    paginationOpts: { cursor: null, numItems: 10 },
+  });
+  expect(top.page.map((comment) => comment.body)).toEqual(["first"]);
+});
+```
 
-`llms.txt` is the maintained discovery index. `pnpm generate:llms` checks its
-heading and local links without generating a source bundle.
+`register(t, name)` takes the mount name when you used
+`app.use(comments, { name })`. The `import.meta.glob` must include your
+`convex/_generated` folder: `convex-test` finds your functions from it.
 
-[API reference](docs/API.md) · [LLM index](llms.txt) ·
-[Security policy](https://github.com/vllnt/convex-comments/blob/main/SECURITY.md)
+This repository's own tests run on the `convex-test` runtime
+(`pnpm test:coverage`, 100% coverage enforced). `pnpm check:docs` type-checks
+every README example against the built package and runs the test above.
+
+## Security
+
+- The component does not authenticate. The host decides who may post on a
+  resource and who may moderate; derive `authorRef` on the server, never accept
+  it from the client.
+- The one rule the component enforces: only the original `authorRef` may edit,
+  remove or resolve a comment.
+- Its tables are reachable only through the component's functions; it reads no
+  host tables. Timestamps come from the server clock.
+- `remove` clears the body at once; the row stays until it is pruned.
+
+Report vulnerabilities as described in
+[SECURITY.md](https://github.com/vllnt/convex-comments/blob/main/SECURITY.md).
 
 ## Related packages
 
-Each is a separate Convex component with its own sandboxed tables; the host
-wires them together.
-
-| Package                                                                        | Use it when                                                                                                                                                 |
-| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`@vllnt/convex-reactions`](https://github.com/vllnt/convex-reactions)         | People like, vote or react to a resource (a comment's `commentId` works as its `resourceRef`) instead of writing text. Comments holds text threads only.    |
-| [`@vllnt/convex-notifications`](https://github.com/vllnt/convex-notifications) | You need to tell someone about a reply or mention. Comments never notifies anyone; the host delivers an inbox item after `post`.                            |
-| [`@vllnt/convex-permissions`](https://github.com/vllnt/convex-permissions)     | You need rules for who may post or moderate. Comments enforces only authorship of `edit` / `remove` / `resolve`; the host owns every other access decision. |
+None. This package has no dependency, shared test or example with another
+package.
 
 ## Contributing
 
-See [CONTRIBUTING.md](https://github.com/vllnt/convex-comments/blob/main/CONTRIBUTING.md).
+See
+[CONTRIBUTING.md](https://github.com/vllnt/convex-comments/blob/main/CONTRIBUTING.md).
 
-## Author
+## Links
 
-Built by [bntvllnt](https://github.com/bntvllnt) ·
-[bntvllnt.com](https://bntvllnt.com) · [X @bntvllnt](https://x.com/bntvllnt)
-
-If this is useful, [sponsor the work](https://github.com/sponsors/bntvllnt).
+- Docs and changelog: [oss.vllnt.com/packages/convex-comments](https://oss.vllnt.com/packages/convex-comments) · [release feed](https://oss.vllnt.com/packages/convex-comments/rss.xml)
+- All @vllnt packages: [oss.vllnt.com](https://oss.vllnt.com) · [search packages and docs on index.vllnt.com](https://index.vllnt.com)
+- Source and issues: [GitHub](https://github.com/vllnt/convex-comments) · [issues](https://github.com/vllnt/convex-comments/issues) · [npm](https://www.npmjs.com/package/@vllnt/convex-comments)
+- Questions and updates: [Discord](https://bntvllnt.com/discord) · [X @bntvllnt](https://x.com/bntvllnt)
+- Company and author: [vllnt.com](https://vllnt.com) · [bntvllnt.com](https://bntvllnt.com) · [GitHub @bntvllnt](https://github.com/bntvllnt) · [LinkedIn](https://linkedin.com/in/bntvllnt)
+- Sponsor: [GitHub Sponsors](https://github.com/sponsors/bntvllnt)
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
+
+[![npm](https://img.shields.io/npm/v/@vllnt/convex-comments.svg)](https://www.npmjs.com/package/@vllnt/convex-comments)
+[![CI](https://github.com/vllnt/convex-comments/actions/workflows/ci.yml/badge.svg)](https://github.com/vllnt/convex-comments/actions/workflows/ci.yml)
 
 ---
 
-Part of vllnt oss: https://oss.vllnt.com
+Part of [vllnt open source](https://oss.vllnt.com) · [Package page](https://oss.vllnt.com/packages/convex-comments) · [vllnt.com](https://vllnt.com) · Built by [bntvllnt](https://bntvllnt.com)

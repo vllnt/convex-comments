@@ -1,37 +1,72 @@
 # @vllnt/convex-comments
 
-> Threaded comments / annotations on any resource — post, reply, edit, resolve, and soft-delete as a Convex component
+> TypeScript Convex component for threaded comments and annotations on any resource: replies, author-only edit and resolve, soft-delete, paging.
 
-`@vllnt/convex-comments` is a publishable Convex component. It targets `convex@^1.45.0`.
-It stores two sandboxed tables - `comments` (attached to a host-opaque `resourceRef`, authored by an opaque `authorRef`, optionally threaded under a `parentId`, holding a `status` of `open`/`resolved`/`deleted`, an opaque host `body`, an optional `editedAt`, and `createdAt`/`updatedAt` server timestamps) and `resourceCounts` (one row per resource holding the visible-comment count that `count` reads; a resource whose comments pre-date its counter keeps the per-resource scan). Every `Comments` method takes the host `ctx` as its first argument. A host mutation calls `post(ctx, resourceRef, authorRef, body, parentId?)` to attach a comment and gets `{ commentId }` back; the original author calls `edit`, `remove` (soft-delete), or `resolve` (a non-author caller is rejected with `NOT_AUTHOR`); clients page a resource's thread with `list(ctx, resourceRef, paginationOpts, { parentId?, includeDeleted? })` or tally it with `count(ctx, resourceRef)` (reactively in Convex). A reply must link a parent on the same, non-deleted resource. Soft-delete keeps the row (preserving replies) but clears the body; a bounded, self-rescheduling `prune` (and a built-in daily cron) sweeps deleted leaf comments past the default 30-day retention window, preserving parents with replies. Batch is 1–500 (default 200); invalid batch/cutoff throws INVALID_BATCH/INVALID_BEFORE; an empty `resourceRef`/`authorRef` on `post` throws INVALID_REF. The full error-code list is in `docs/API.md`. Time is read from the server clock inside every handler - no caller-supplied clock. The host owns the resource, the author identity, auth, and the `body` type (the client is generic over it, with an optional `bodyValidator` parser narrowing the opaque stored body at the boundary - never a `v.any()` dump); the component owns only the comment tree. Mount-safe: it runs correctly under multiple named `app.use` mounts.
+Install `@vllnt/convex-comments` (unreleased builds from `main` use the `canary`
+dist-tag). Peer dependency `convex@^1.45.0` (development and tests run on
+1.51.0; the floor is not tested in CI). Mount it with `app.use(comments)` from
+`@vllnt/convex-comments/convex.config` and call it through
+`new Comments<TBody>(components.comments, { bodyValidator? })` from host
+mutations and queries; every method takes the host `ctx` first. Methods: `post`,
+`edit`, `remove`, `resolve`, `get`, `list`, `count`, `prune`. A comment is
+attached to an opaque `resourceRef`, written by an opaque `authorRef`, and may
+reply to a `parentId` on the same resource. Status: `resolve` moves between
+`open` and `resolved`; `remove` moves either to `deleted` (soft-delete, body
+cleared, terminal). Only the original
+`authorRef` may `edit`, `remove` or `resolve`. `list` pages the top level oldest
+first, or one comment's direct replies with `{ parentId }`, excluding deleted
+comments unless `includeDeleted`. `count` returns open plus resolved comments,
+replies included. Invalid input throws `ConvexError` with `data.code`
+`INVALID_REF`, `PARENT_NOT_FOUND`, `PARENT_MISMATCH`, `PARENT_DELETED`,
+`NOT_FOUND`, `NOT_AUTHOR`, `DELETED`, `INVALID_BATCH` or `INVALID_BEFORE`.
+`INVALID_REF` is checked only by `post`. A built-in daily cron prunes
+soft-deleted leaf comments older than 30 days; `prune` batch is 1–500 (default
+200). The body is opaque; `bodyValidator` is a `(unknown) => TBody` parser run
+on write and read, not a Convex `v.*` validator. The host owns auth and the
+meaning of resources and authors; there is no React entry.
 
-Entry points: `@vllnt/convex-comments` (the `Comments` client and its types), `@vllnt/convex-comments/convex.config` (mount with `app.use`), `@vllnt/convex-comments/test` (`register(t, name?)` for `convex-test`), and `@vllnt/convex-comments/_generated/component` (the `ComponentApi` type behind `components.comments`).
+## When to use
 
-Host parsers are `(unknown) => T` functions, not `v.*.parse`.
+- Use it when people discuss a resource (a post, doc, ticket or clip) in text
+  threads with replies.
+- Use it when you need inline annotations or review notes that their author
+  resolves and reopens.
+- Use it when only the original author may edit, resolve or remove a comment.
+- Do not use it when people only like, vote or react without text: use
+  `@vllnt/convex-reactions`.
+- Do not use it when the thread is a conversation with an AI agent: use
+  `@convex-dev/agent`.
 
 ## For coding agents
 
-The docs are bundled in this package at `node_modules/@vllnt/convex-comments/docs/`, next to `CHANGELOG.md`, this `llms.txt`, and the TypeScript source in `src/`. They match the installed version. Read them before writing code.
+The docs are bundled in the package at `node_modules/@vllnt/convex-comments/docs/`
+and match the installed version. Read them, and the shipped `src/`, before
+writing code. The links below to `./` paths are files inside the installed package.
 
 ## Docs
 
-- [README](./README.md): Project overview, installation, usage examples
-- [API Reference](./docs/API.md): Public class methods, return shapes, error codes, cron
+- [README](./README.md): Install, quick start, common tasks, limits
+- [API Reference](./docs/API.md): Every export, signature, return shape and default
+- [Error codes](./docs/API.md#error-codes): Every error code and the method that throws it
+- [Errors and fixes](./README.md#errors-and-fixes): Every error code, its cause and the fix
 - [Changelog](./CHANGELOG.md): Version history and release notes
+- [Contributing](https://github.com/vllnt/convex-comments/blob/main/CONTRIBUTING.md): Development setup, validation commands, release workflow (repository only)
 
 ## Examples
 
-Not bundled in the package; these follow `main` on GitHub.
-
-- [Example component wrapper](https://github.com/vllnt/convex-comments/blob/main/example/convex/example.ts): Host-app wrapper functions
-- [Example tests](https://github.com/vllnt/convex-comments/blob/main/example/convex/example.test.ts): End-to-end usage coverage with `convex-test`
+- [Example component wrapper](https://github.com/vllnt/convex-comments/blob/main/example/convex/example.ts): Host-app wrapper functions (repository only)
+- [Example tests](https://github.com/vllnt/convex-comments/blob/main/example/convex/example.test.ts): Usage coverage with `convex-test` (repository only)
 
 ## Optional
 
-- [Contributing](https://github.com/vllnt/convex-comments/blob/main/CONTRIBUTING.md): Development setup, validation commands, release workflow
 - [Security Policy](https://github.com/vllnt/convex-comments/blob/main/SECURITY.md): Vulnerability reporting policy
 - [License](./LICENSE): MIT license
 
 ## Ecosystem
 
-- [vllnt oss](https://oss.vllnt.com/llms.txt): index of the other vllnt open-source packages
+- [Package page](https://oss.vllnt.com/packages/convex-comments)
+- [Release feed](https://oss.vllnt.com/packages/convex-comments/rss.xml)
+- [All @vllnt packages](https://oss.vllnt.com/llms.txt)
+- [Search vllnt packages and docs](https://index.vllnt.com)
+- [vllnt](https://vllnt.com/llms.txt)
+- [Author](https://bntvllnt.com)

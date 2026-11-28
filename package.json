@@ -1,7 +1,7 @@
 {
   "name": "@vllnt/convex-comments",
   "version": "0.2.0",
-  "description": "Threaded comments / annotations on any resource — post, reply, edit, resolve, and soft-delete as a Convex component",
+  "description": "TypeScript Convex component for threaded comments and annotations on any resource: replies, author-only edit and resolve, soft-delete, paging.",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.34.8",
@@ -99,9 +99,14 @@
   "keywords": [
     "convex",
     "convex-component",
+    "typescript",
     "comments",
-    "threads",
-    "annotations"
+    "threaded-comments",
+    "comment-threads",
+    "replies",
+    "annotations",
+    "discussion",
+    "soft-delete"
   ],
   "pnpm": {
     "minimumReleaseAge": 10080,

@@ -13,12 +13,17 @@ Convex agent skills for common tasks can be installed by running `npx convex ai-
 Threaded comments / annotations on any resource, as a Convex component. A host attaches a comment to
 an opaque `resourceRef`; replies thread under a parent; the original author edits, resolves, and
 soft-deletes their own comments; clients page a resource's thread (or subscribe reactively). It
-follows the vllnt Component Standard (see the `oss-packages` hub `AGENTS.md`).
+follows the vllnt Component Standard.
 
 ## Agent instructions
 
 `AGENTS.md` is the sole agent-instruction source for this repository. Do not add
 `CLAUDE.md` or `.claude` content.
+
+`example/convex/_generated/ai/` (named in the Convex block above) is gitignored, so a fresh clone does
+not have `guidelines.md`. `npx convex ai-files install` creates it, but it also writes `CLAUDE.md`,
+`.claude/skills/`, `.agents/skills/` and `skills-lock.json` and rewraps the block above: do not commit
+those (`pnpm check:agents` fails on `CLAUDE.md` and `.claude`).
 
 ## Architecture
 
@@ -30,16 +35,23 @@ src/
 │   ├── index.ts           # Comments<TBody> class (consumer-facing API)
 │   └── types.ts           # public TypeScript interfaces
 └── component/
-    ├── schema.ts           # sandboxed table: comments {resourceRef, authorRef, parentId?, body?, status, editedAt?, createdAt, updatedAt}
+    ├── schema.ts           # sandboxed tables: comments {resourceRef, authorRef, parentId?, body?, status, editedAt?, createdAt, updatedAt}, resourceCounts {resourceRef, visible}
     ├── convex.config.ts    # defineComponent("comments")
     ├── mutations.ts        # post, edit, remove, resolve, prune
     ├── queries.ts          # get, list, count
     ├── validators.ts       # shared validators (commentStatus, visibleStatus, commentView, jsonValue)
     └── crons.ts            # daily prune cron (self-rescheduling)
+example/convex/             # host app used by the tests (two mounts: comments, annotations)
+docs/API.md                 # full reference (shipped in the tarball)
+scripts/
+├── check-documentation.mjs # `pnpm check:docs`: docs contract + README examples against the built package
+├── test-package.mjs        # `pnpm test:package`: tarball contents, exports targets, shipped links
+├── check-release.mjs       # `pnpm check:release`: publish workflow guards
+└── generate-llms.mjs       # `pnpm generate:llms`: llms.txt heading and local links
 ```
 
-Sandboxed tables: `comments` — indexed `by_resource` (resource listing + legacy count fallback), `by_resource_parent`
-(reply listing), `by_author` (author listing), and `by_status_updated` (retention sweep); `resourceCounts` —
+Sandboxed tables: `comments` — indexed `by_resource` (legacy count fallback and the first-post counter check),
+`by_resource_parent` (top-level and reply listing, prune's reply check), `by_author` (no query uses it yet), and `by_status_updated` (retention sweep); `resourceCounts` —
 one row per resource holding the visible-comment count, created by the first `post` on a resource
 with no comments and maintained by `post`/`remove`; resources with pre-existing comments keep the `by_resource`
 scan (no unbounded backfill inside a write). No host tables are touched. The stored `body` is opaque to the component; the host narrows it via `bodyValidator`
@@ -118,13 +130,14 @@ vs annotations) mount a second instance (`app.use(component, { name })`).
 
 | Changed | Update in the same commit |
 |---------|--------------------------|
-| Public API (post/edit/remove/resolve/get/list/count/prune signatures) | README API Reference table, `docs/API.md`, `llms.txt` context |
-| Config options / defaults (body validator, retention, batch) | README API Reference, `docs/API.md` constructor section |
-| Schema / table / indexes | README Architecture, `docs/API.md` |
-| Error codes | `docs/API.md` → `## Error codes` table |
-| `peerDependencies.convex` version | `llms.txt` context line (`convex@^X.Y.Z`), `docs/API.md` Compatibility line, README Installation peer note |
+| Public API (post/edit/remove/resolve/get/list/count/prune signatures, any export) | README `## API` table, `docs/API.md` heading for the export, TSDoc summary, `llms.txt` summary |
+| Config options / defaults (body validator, retention, batch) | README `## Limits and gotchas`, `docs/API.md` `Comments` / `prune` sections |
+| Schema / table / indexes | `docs/API.md` `## Tables`, Architecture above |
+| Error codes | README `## Errors and fixes` table, `docs/API.md` `## Error codes` table, `llms.txt` summary |
+| `peerDependencies.convex` version | `llms.txt` summary (`convex@^X.Y.Z`), `docs/API.md` Compatibility line, README `## Compatibility` |
 | Lifecycle / status / threading rules | `docs/API.md` mutation sections, Key design decisions above |
-| Any change | `pnpm generate:llms` to validate the `llms.txt` heading and local links |
+| `description` in `package.json` | the README line under the title and the `llms.txt` `>` summary (same words) |
+| Any change | `pnpm build && pnpm check:docs` (docs contract, README examples against `dist`) and `pnpm generate:llms` |
 
 Grep old values before committing (e.g. after a `peerDependencies.convex` bump, `git grep "1.41.0"` → only the new range survives).
 
